@@ -1,0 +1,45 @@
+{
+  "name": "vscode-lab",
+  "displayName": "vscode-lab",
+  "description": "vscode-lab",
+  "version": "0.0.1",
+  "license": "BSD-3-Clause",
+  "author": {
+    "name": "Matt Harrison"
+  },
+  "publisher": "mtharrison",
+  "engines": {
+    "vscode": "^1.30.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onLanguage:javascript"
+  ],
+  "main": "./out/extension",
+  "contributes": {
+    "commands": [
+      {
+        "command": "extension.runLabTest",
+        "title": "Run Lab Test"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "postinstall": "node ./node_modules/vscode/bin/install"
+  },
+  "devDependencies": {
+    "typescript": "^2.6.1",
+    "vscode": "^1.1.6",
+    "tslint": "^5.8.0",
+    "@types/node": "^7.0.43",
+    "@types/mocha": "^2.2.42"
+  },
+  "dependencies": {
+    "esprima": "^4.0.1"
+  }
+}
