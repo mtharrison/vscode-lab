@@ -1,5 +1,9 @@
 {
   "name": "vscode-lab",
+  "repository": {
+    "type" : "git",
+    "url" : "https://github.com/mtharrison/vscode-lab.git"
+  },
   "displayName": "vscode-lab",
   "description": "vscode-lab",
   "version": "0.0.1",

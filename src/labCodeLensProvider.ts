@@ -37,7 +37,7 @@ class LabCodeLensProvider implements CodeLensProvider {
             title: "[Run Lab Test]",
             arguments: [
               document.fileName,
-              testName
+              this.escapeRegExp(testName)
             ]
           };
 
@@ -47,6 +47,10 @@ class LabCodeLensProvider implements CodeLensProvider {
     });
 
     return lenses;
+  }
+
+  escapeRegExp(string) {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }
 }
 
