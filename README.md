@@ -1,3 +1,10 @@
 # vscode-lab
 
-Run lab tests from the editor
+![Gif demo](vscode-lab-gif.gif?raw=true "vscode-lab")
+
+Run hapijs/lab tests from Visual Studio Code
+
+- Requires npx to be installed: `npm install -g npx`
+- Inspired by vscode-go
+
+
