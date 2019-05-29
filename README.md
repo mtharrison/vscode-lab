@@ -4,7 +4,8 @@
 
 Run hapijs/lab tests from Visual Studio Code
 
-- Requires npx to be installed: `npm install -g npx`
+- Search for vscode-lab under Extensions in vscode
+- Requires npx to be pre-installed: `npm install -g npx`
 - Inspired by vscode-go
 
 
