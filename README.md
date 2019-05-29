@@ -1,6 +1,6 @@
 # vscode-lab
 
-![Gif demo](vscode-lab-gif.gif?raw=true "vscode-lab")
+![Gif demo](vscode-lab-gif.gif "vscode-lab")
 
 Run hapijs/lab tests from Visual Studio Code
 
