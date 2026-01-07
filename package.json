@@ -2,7 +2,7 @@
   "name": "vscode-lab-test-runner",
   "displayName": "Lab Test Explorer",
   "description": "Run and debug hapijs/lab tests with VS Code's native Test Explorer",
-  "version": "3.0.0",
+  "version": "4.0.0",
   "license": "BSD-3-Clause",
   "author": {
     "name": "Matt Harrison"
