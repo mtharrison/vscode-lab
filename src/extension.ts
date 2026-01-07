@@ -1,30 +1,26 @@
-import { commands, ExtensionContext, languages } from "vscode";
-import LabCodeLensProvider from "./labCodeLensProvider";
-import { runLabTest } from "./commands";
+import * as vscode from 'vscode';
+import { LabTestController } from './testController';
 
-export function activate(context: ExtensionContext) {
-  // Register the command
-  let commandDisposable = commands.registerCommand(
-    "extension.runLabTest",
-    runLabTest
+let testController: LabTestController | undefined;
+
+export function activate(context: vscode.ExtensionContext): void {
+  console.log('Lab Test Explorer is now active');
+
+  testController = new LabTestController();
+  context.subscriptions.push({
+    dispose: () => testController?.dispose(),
+  });
+
+  const refreshCommand = vscode.commands.registerCommand(
+    'labTestExplorer.refresh',
+    async () => {
+      await testController?.discoverAllTests();
+    }
   );
-
-  // Get a document selector for the CodeLens provider
-  // This one is any file that has the language of javascript
-  let docSelector = {
-    language: "javascript",
-    scheme: "file"
-  };
-
-  // Register our CodeLens provider
-  let codeLensProviderDisposable = languages.registerCodeLensProvider(
-    docSelector,
-    new LabCodeLensProvider()
-  );
-
-  // Push the command and CodeLens provider to the context so it can be disposed of later
-  context.subscriptions.push(commandDisposable);
-  context.subscriptions.push(codeLensProviderDisposable);
+  context.subscriptions.push(refreshCommand);
 }
 
-export function deactivate() {}
+export function deactivate(): void {
+  testController?.dispose();
+  testController = undefined;
+}
