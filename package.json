@@ -27,7 +27,9 @@
   ],
   "activationEvents": [
     "workspaceContains:**/node_modules/@hapi/lab",
-    "workspaceContains:**/node_modules/lab"
+    "workspaceContains:**/node_modules/lab",
+    "onLanguage:javascript",
+    "onLanguage:typescript"
   ],
   "main": "./out/extension.js",
   "contributes": {

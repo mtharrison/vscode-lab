@@ -39,54 +39,93 @@ export class LabTestController {
 
     this.disposables.push(runProfile);
     this.setupFileWatcher();
-    this.setupDocumentWatcher();
+    this.setupDocumentWatchers();
+
+    // Parse all currently open test files
+    this.parseOpenDocuments();
+
+    // Discover all tests in workspace
+    void this.discoverAllTests();
   }
 
   private setupFileWatcher(): void {
     const config = getConfig();
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+
+    if (!workspaceFolder) {
+      return;
+    }
+
     this.fileWatcher = vscode.workspace.createFileSystemWatcher(
-      new vscode.RelativePattern(
-        vscode.workspace.workspaceFolders?.[0] || '',
-        config.testMatch
-      )
+      new vscode.RelativePattern(workspaceFolder, config.testMatch)
     );
 
-    this.fileWatcher.onDidCreate((uri) => this.parseTestsInFile(uri));
-    this.fileWatcher.onDidChange((uri) => this.parseTestsInFile(uri));
+    this.fileWatcher.onDidCreate((uri) => void this.parseTestsInFile(uri));
+    this.fileWatcher.onDidChange((uri) => void this.parseTestsInFile(uri));
     this.fileWatcher.onDidDelete((uri) => this.removeTestsForFile(uri));
 
     this.disposables.push(this.fileWatcher);
   }
 
-  private setupDocumentWatcher(): void {
-    const documentWatcher = vscode.workspace.onDidChangeTextDocument((e) => {
-      if (this.isTestFile(e.document.uri)) {
+  private setupDocumentWatchers(): void {
+    // Watch for document opens
+    const openWatcher = vscode.workspace.onDidOpenTextDocument((document) => {
+      if (this.isTestFile(document.uri) && document.uri.scheme === 'file') {
+        this.parseTestsInDocument(document);
+      }
+    });
+    this.disposables.push(openWatcher);
+
+    // Watch for document changes
+    const changeWatcher = vscode.workspace.onDidChangeTextDocument((e) => {
+      if (this.isTestFile(e.document.uri) && e.document.uri.scheme === 'file') {
         this.parseTestsInDocument(e.document);
       }
     });
-    this.disposables.push(documentWatcher);
+    this.disposables.push(changeWatcher);
+
+    // Watch for document saves (re-parse to ensure consistency)
+    const saveWatcher = vscode.workspace.onDidSaveTextDocument((document) => {
+      if (this.isTestFile(document.uri) && document.uri.scheme === 'file') {
+        this.parseTestsInDocument(document);
+      }
+    });
+    this.disposables.push(saveWatcher);
+  }
+
+  private parseOpenDocuments(): void {
+    // Parse all currently open text documents that are test files
+    for (const document of vscode.workspace.textDocuments) {
+      if (this.isTestFile(document.uri) && document.uri.scheme === 'file') {
+        this.parseTestsInDocument(document);
+      }
+    }
   }
 
   private isTestFile(uri: vscode.Uri): boolean {
+    if (uri.scheme !== 'file') {
+      return false;
+    }
+
     const config = getConfig();
     const relativePath = vscode.workspace.asRelativePath(uri);
+
+    // Convert glob pattern to regex
     const pattern = new RegExp(
-      config.testMatch
-        .replace(/\*\*/g, '.*')
-        .replace(/\*/g, '[^/]*')
+      '^' + config.testMatch
         .replace(/\./g, '\\.')
+        .replace(/\*\*/g, '<<GLOBSTAR>>')
+        .replace(/\*/g, '[^/]*')
+        .replace(/<<GLOBSTAR>>/g, '.*')
         .replace(/\{([^}]+)\}/g, '($1)')
-        .replace(/,/g, '|')
+        .replace(/,/g, '|') + '$'
     );
+
     return pattern.test(relativePath);
   }
 
   async discoverAllTests(): Promise<void> {
     const config = getConfig();
-
-    this.controller.items.forEach((item) => {
-      this.controller.items.delete(item.id);
-    });
 
     const testFiles = await vscode.workspace.findFiles(
       config.testMatch,
@@ -112,8 +151,16 @@ export class LabTestController {
     const content = document.getText();
     const tests = parseTestFile(content);
 
+    if (tests.length === 0) {
+      // No tests found, remove any existing items for this file
+      this.removeTestsForFile(uri);
+      return;
+    }
+
     const fileId = uri.toString();
     const existingItem = this.controller.items.get(fileId);
+
+    // Clear existing children
     if (existingItem) {
       existingItem.children.forEach((child) => {
         existingItem.children.delete(child.id);
@@ -121,9 +168,8 @@ export class LabTestController {
     }
 
     const fileName = path.basename(uri.fsPath);
-    const fileItem =
-      existingItem ||
-      this.controller.createTestItem(fileId, fileName, uri);
+    const fileItem = existingItem || this.controller.createTestItem(fileId, fileName, uri);
+    fileItem.canResolveChildren = false;
 
     if (!existingItem) {
       this.controller.items.add(fileItem);
@@ -131,14 +177,12 @@ export class LabTestController {
 
     for (const test of tests) {
       const testId = `${fileId}#${test.name}`;
-      const testItem = this.controller.createTestItem(
-        testId,
-        test.name,
-        uri
-      );
-      testItem.range = test.range;
+      const testItem = this.controller.createTestItem(testId, test.name, uri);
 
-      testItem.tags = [new vscode.TestTag(test.type)];
+      // Set the range - this is what makes the gutter icons appear
+      testItem.range = test.range;
+      testItem.canResolveChildren = false;
+
       this.testItemMap.set(testItem, test);
       fileItem.children.add(testItem);
     }
@@ -173,6 +217,7 @@ export class LabTestController {
       testItems.push(...filteredItems);
     }
 
+    // Only run leaf tests (actual test cases, not files/suites)
     const leafTests = testItems.filter((item) => item.children.size === 0);
 
     await runAllTests(leafTests, run, token);
