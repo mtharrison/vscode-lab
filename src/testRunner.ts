@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { spawn } from 'child_process';
 import { getConfig } from './config';
-import { escapeRegExp } from './testParser';
+import { escapeRegExp, escapeShellArg } from './testParser';
 
 export interface TestResult {
   passed: boolean;
@@ -24,18 +24,19 @@ export async function runLabTest(
     return;
   }
 
-  const workspaceFolder = vscode.workspace.getWorkspaceFolder(testItem.uri!);
+  const workspaceFolder = vscode.workspace.getWorkspaceFolder(testItem.uri);
   const cwd = workspaceFolder?.uri.fsPath || path.dirname(testFilePath);
 
   const testName = testItem.label;
   const escapedName = escapeRegExp(testName);
+  const shellSafeName = escapeShellArg(escapedName);
 
   const args = [
     'lab',
     '-m', config.timeout.toString(),
     '-v',
     '-r', 'console',
-    '-g', escapedName,
+    '-g', shellSafeName,
     testFilePath,
   ];
 

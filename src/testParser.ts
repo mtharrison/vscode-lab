@@ -76,3 +76,13 @@ export function parseTestFile(content: string): ParsedTest[] {
 export function escapeRegExp(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
+
+/**
+ * Escapes a string for safe use as a shell argument.
+ * Uses single quotes and escapes any embedded single quotes.
+ */
+export function escapeShellArg(text: string): string {
+  // Wrap in single quotes and escape any embedded single quotes
+  // by ending the single-quoted string, adding an escaped single quote, and restarting
+  return `'${text.replace(/'/g, "'\\''")}'`;
+}
