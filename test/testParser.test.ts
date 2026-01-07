@@ -138,6 +138,130 @@ describe('testParser', () => {
       expect(tests).toHaveLength(1);
       expect(tests[0].name).toBe('test with options');
     });
+
+    it('should parse TypeScript files with type annotations', () => {
+      const code = `
+        interface User {
+          name: string;
+          age: number;
+        }
+
+        const createUser = (name: string, age: number): User => ({ name, age });
+
+        describe('User creation', () => {
+          it('should create a user with valid data', () => {
+            const user: User = createUser('test', 25);
+            expect(user.name).toBe('test');
+          });
+        });
+      `;
+
+      const tests = parseTestFile(code);
+
+      expect(tests).toHaveLength(2);
+      const names = tests.map((t) => t.name);
+      expect(names).toContain('User creation');
+      expect(names).toContain('should create a user with valid data');
+    });
+
+    it('should parse TypeScript files with generics', () => {
+      const code = `
+        function identity<T>(value: T): T {
+          return value;
+        }
+
+        it('should handle generic functions', () => {
+          const result = identity<string>('test');
+          expect(result).toBe('test');
+        });
+      `;
+
+      const tests = parseTestFile(code);
+
+      expect(tests).toHaveLength(1);
+      expect(tests[0].name).toBe('should handle generic functions');
+    });
+
+    it('should parse TypeScript files with type aliases and unions', () => {
+      const code = `
+        type Status = 'pending' | 'success' | 'error';
+        type Result<T> = { status: Status; data: T | null };
+
+        describe('Result handling', () => {
+          it('should handle success result', () => {
+            const result: Result<string> = { status: 'success', data: 'test' };
+            expect(result.status).toBe('success');
+          });
+        });
+      `;
+
+      const tests = parseTestFile(code);
+
+      expect(tests).toHaveLength(2);
+      expect(tests.map((t) => t.name)).toContain('should handle success result');
+    });
+
+    it('should parse TypeScript files with enums', () => {
+      const code = `
+        enum Direction {
+          Up = 'UP',
+          Down = 'DOWN',
+        }
+
+        it('should use enum values', () => {
+          const dir: Direction = Direction.Up;
+          expect(dir).toBe('UP');
+        });
+      `;
+
+      const tests = parseTestFile(code);
+
+      expect(tests).toHaveLength(1);
+      expect(tests[0].name).toBe('should use enum values');
+    });
+
+    it('should parse TypeScript files with class syntax', () => {
+      const code = `
+        class Calculator {
+          private value: number = 0;
+
+          public add(n: number): this {
+            this.value += n;
+            return this;
+          }
+
+          public getValue(): number {
+            return this.value;
+          }
+        }
+
+        describe('Calculator', () => {
+          it('should add numbers', () => {
+            const calc = new Calculator();
+            expect(calc.add(5).getValue()).toBe(5);
+          });
+        });
+      `;
+
+      const tests = parseTestFile(code);
+
+      expect(tests).toHaveLength(2);
+      expect(tests.map((t) => t.name)).toContain('should add numbers');
+    });
+
+    it('should parse TypeScript files with as assertions', () => {
+      const code = `
+        it('should handle type assertions', () => {
+          const value = JSON.parse('{"name": "test"}') as { name: string };
+          expect(value.name).toBe('test');
+        });
+      `;
+
+      const tests = parseTestFile(code);
+
+      expect(tests).toHaveLength(1);
+      expect(tests[0].name).toBe('should handle type assertions');
+    });
   });
 
   describe('escapeRegExp', () => {

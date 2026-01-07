@@ -1,5 +1,4 @@
-import * as acorn from 'acorn';
-import * as walk from 'acorn-walk';
+import { parse, simpleTraverse, AST_NODE_TYPES, TSESTree } from '@typescript-eslint/typescript-estree';
 import * as vscode from 'vscode';
 
 export interface ParsedTest {
@@ -9,60 +8,54 @@ export interface ParsedTest {
   children: ParsedTest[];
 }
 
-interface AcornNode {
-  type: string;
-  loc?: acorn.SourceLocation;
-  callee?: AcornNode;
-  name?: string;
-  arguments?: AcornNode[];
-  value?: string | number | boolean | null | RegExp | bigint;
-  raw?: string;
-}
-
 const TEST_FUNCTIONS = new Set(['describe', 'it', 'experiment', 'test']);
 
 export function parseTestFile(content: string): ParsedTest[] {
   const tests: ParsedTest[] = [];
 
   try {
-    const ast = acorn.parse(content, {
-      ecmaVersion: 'latest',
-      sourceType: 'module',
-      locations: true,
-      allowHashBang: true,
+    const ast = parse(content, {
+      loc: true,
+      range: true,
+      jsx: true,
     });
 
-    walk.simple(ast, {
-      CallExpression(node: acorn.Node) {
-        const callNode = node as unknown as AcornNode;
-        if (
-          callNode.callee?.type === 'Identifier' &&
-          callNode.callee.name &&
-          TEST_FUNCTIONS.has(callNode.callee.name) &&
-          callNode.arguments &&
-          callNode.arguments.length >= 2 &&
-          (callNode.arguments[0].type === 'Literal' || callNode.arguments[0].type === 'TemplateLiteral') &&
-          callNode.loc
-        ) {
-          const firstArg = callNode.arguments[0];
-          const testName = (typeof firstArg.value === 'string' ? firstArg.value : null) ||
-            (firstArg.raw ? firstArg.raw.slice(1, -1) : 'unnamed test');
+    simpleTraverse(ast, {
+      enter(node) {
+        if (node.type === AST_NODE_TYPES.CallExpression) {
+          const callNode = node;
+          if (
+            callNode.callee.type === AST_NODE_TYPES.Identifier &&
+            TEST_FUNCTIONS.has(callNode.callee.name) &&
+            callNode.arguments.length >= 2 &&
+            (callNode.arguments[0].type === AST_NODE_TYPES.Literal || callNode.arguments[0].type === AST_NODE_TYPES.TemplateLiteral) &&
+            callNode.loc
+          ) {
+            const firstArg = callNode.arguments[0];
+            let testName = 'unnamed test';
 
-          const range = new vscode.Range(
-            callNode.loc.start.line - 1,
-            callNode.loc.start.column,
-            callNode.loc.end.line - 1,
-            callNode.loc.end.column
-          );
+            if (firstArg.type === AST_NODE_TYPES.Literal && typeof (firstArg as TSESTree.Literal).value === 'string') {
+              testName = (firstArg as TSESTree.Literal).value as string;
+            } else if (firstArg.type === AST_NODE_TYPES.TemplateLiteral && (firstArg).quasis.length > 0) {
+              testName = (firstArg).quasis.map((q) => q.value.cooked || q.value.raw).join('');
+            }
 
-          const testType = callNode.callee.name as ParsedTest['type'];
+            const range = new vscode.Range(
+              callNode.loc.start.line - 1,
+              callNode.loc.start.column,
+              callNode.loc.end.line - 1,
+              callNode.loc.end.column
+            );
 
-          tests.push({
-            name: testName,
-            type: testType,
-            range,
-            children: [],
-          });
+            const testType = callNode.callee.name as ParsedTest['type'];
+
+            tests.push({
+              name: testName,
+              type: testType,
+              range,
+              children: [],
+            });
+          }
         }
       },
     });
