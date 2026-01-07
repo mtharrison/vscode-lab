@@ -1,5 +1,5 @@
 {
-  "name": "vscode-lab",
+  "name": "vscode-lab-test-runner",
   "displayName": "Lab Test Explorer",
   "description": "Run and debug hapijs/lab tests with VS Code's native Test Explorer",
   "version": "3.0.0",
