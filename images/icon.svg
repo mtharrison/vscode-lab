@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="beaker" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#4CAF50;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#2E7D32;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="liquid" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#81C784;stop-opacity:0.9" />
+      <stop offset="100%" style="stop-color:#4CAF50;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+
+  <!-- Background circle -->
+  <circle cx="64" cy="64" r="60" fill="#1E1E1E"/>
+
+  <!-- Beaker/Flask shape -->
+  <path d="M44 20 L44 50 L28 90 Q24 100 32 106 L96 106 Q104 100 100 90 L84 50 L84 20"
+        fill="none"
+        stroke="url(#beaker)"
+        stroke-width="4"
+        stroke-linecap="round"
+        stroke-linejoin="round"/>
+
+  <!-- Flask top -->
+  <path d="M40 20 L88 20" stroke="url(#beaker)" stroke-width="4" stroke-linecap="round"/>
+
+  <!-- Liquid in flask -->
+  <path d="M34 85 L38 75 L90 75 L94 85 Q98 95 92 100 L36 100 Q30 95 34 85 Z"
+        fill="url(#liquid)"/>
+
+  <!-- Bubbles -->
+  <circle cx="50" cy="85" r="4" fill="#C8E6C9" opacity="0.8"/>
+  <circle cx="70" cy="82" r="3" fill="#C8E6C9" opacity="0.7"/>
+  <circle cx="60" cy="90" r="5" fill="#C8E6C9" opacity="0.6"/>
+  <circle cx="78" cy="88" r="3" fill="#C8E6C9" opacity="0.5"/>
+
+  <!-- Check mark (test passing) -->
+  <path d="M48 65 L58 75 L80 50"
+        fill="none"
+        stroke="#4CAF50"
+        stroke-width="5"
+        stroke-linecap="round"
+        stroke-linejoin="round"/>
+</svg>

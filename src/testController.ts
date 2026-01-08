@@ -1,9 +1,28 @@
+/**
+ * @fileoverview Main test controller for Lab Test Explorer
+ *
+ * Implements VSCode's TestController API to provide native Test Explorer integration.
+ * Handles test discovery, file watching, and test execution orchestration for
+ * @hapi/lab test files.
+ *
+ * @module testController
+ */
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { getConfig } from './config';
 import { parseTestFile, ParsedTest } from './testParser';
 import { runAllTests } from './testRunner';
 
+/**
+ * Controller for integrating @hapi/lab tests with VSCode's Test Explorer.
+ *
+ * This class is the core of the extension, responsible for:
+ * - Creating and managing the VSCode TestController instance
+ * - Discovering tests in the workspace using configurable glob patterns
+ * - Watching for file changes to keep tests in sync
+ * - Handling test run requests from the Test Explorer UI
+ * - Displaying test items with gutter icons for inline test execution
+ */
 export class LabTestController {
   private controller: vscode.TestController;
   private testItemMap: WeakMap<vscode.TestItem, ParsedTest> = new WeakMap();
@@ -124,6 +143,16 @@ export class LabTestController {
     return pattern.test(relativePath);
   }
 
+  /**
+   * Discovers all test files in the workspace and parses them for tests.
+   *
+   * Searches for files matching the configured `testMatch` glob pattern,
+   * excluding `node_modules`. Each discovered file is parsed to extract
+   * test definitions which are then displayed in the Test Explorer.
+   *
+   * This method is called automatically on extension activation and can
+   * be triggered manually via the "Lab Test Explorer: Refresh" command.
+   */
   async discoverAllTests(): Promise<void> {
     const config = getConfig();
 
@@ -231,6 +260,13 @@ export class LabTestController {
     });
   }
 
+  /**
+   * Disposes of all resources held by the controller.
+   *
+   * Cleans up the VSCode TestController, file watchers, and all other
+   * registered disposables. Should be called when the extension is
+   * deactivated to prevent resource leaks.
+   */
   dispose(): void {
     this.controller.dispose();
     for (const disposable of this.disposables) {

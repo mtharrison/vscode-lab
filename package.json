@@ -4,6 +4,11 @@
   "description": "Run and debug hapijs/lab tests with VS Code's native Test Explorer",
   "version": "5.0.3",
   "license": "BSD-3-Clause",
+  "icon": "images/icon.png",
+  "galleryBanner": {
+    "color": "#1E1E1E",
+    "theme": "dark"
+  },
   "author": {
     "name": "Matt Harrison"
   },

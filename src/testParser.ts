@@ -1,6 +1,23 @@
+/**
+ * @fileoverview Test file parser for Lab Test Explorer
+ *
+ * Uses AST parsing to detect test functions (`test()`, `it()`, `describe()`, `experiment()`)
+ * in JavaScript and TypeScript files. Extracts test names and source locations for
+ * integration with VSCode's Test Explorer.
+ *
+ * @module testParser
+ */
 import { parse, simpleTraverse, AST_NODE_TYPES, TSESTree } from '@typescript-eslint/typescript-estree';
 import * as vscode from 'vscode';
 
+/**
+ * Represents a parsed test case or test suite from a source file.
+ *
+ * @property name - The display name of the test (extracted from the first argument)
+ * @property type - The type of test function that was called
+ * @property range - The source location range for displaying gutter icons
+ * @property children - Nested tests (for describe/experiment blocks)
+ */
 export interface ParsedTest {
   name: string;
   type: 'describe' | 'it' | 'experiment' | 'test';
@@ -8,8 +25,20 @@ export interface ParsedTest {
   children: ParsedTest[];
 }
 
+/** Set of recognized test function names from @hapi/lab */
 const TEST_FUNCTIONS = new Set(['describe', 'it', 'experiment', 'test']);
 
+/**
+ * Parses a JavaScript or TypeScript source file to extract test definitions.
+ *
+ * Uses the TypeScript ESLint parser to build an AST, then traverses it to find
+ * calls to test functions (`test()`, `it()`, `describe()`, `experiment()`).
+ * Extracts the test name from the first argument (string literal or template literal)
+ * and records the source location for gutter icon placement.
+ *
+ * @param content - The source code content to parse
+ * @returns Array of parsed test objects, empty array if parsing fails or no tests found
+ */
 export function parseTestFile(content: string): ParsedTest[] {
   const tests: ParsedTest[] = [];
 
@@ -66,13 +95,28 @@ export function parseTestFile(content: string): ParsedTest[] {
   return tests;
 }
 
+/**
+ * Escapes special regex characters in a string.
+ *
+ * Used to convert test names into safe regex patterns for the lab `-g` (grep) flag,
+ * which filters tests by name using regex matching.
+ *
+ * @param text - The string to escape
+ * @returns The string with all regex special characters escaped
+ */
 export function escapeRegExp(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 /**
  * Escapes a string for safe use as a shell argument.
- * Uses single quotes and escapes any embedded single quotes.
+ *
+ * Wraps the string in single quotes and escapes any embedded single quotes
+ * by ending the quoted section, adding an escaped quote, and restarting.
+ * This prevents shell injection when passing test names to the lab CLI.
+ *
+ * @param text - The string to escape for shell usage
+ * @returns The safely escaped shell argument
  */
 export function escapeShellArg(text: string): string {
   // Wrap in single quotes and escape any embedded single quotes
