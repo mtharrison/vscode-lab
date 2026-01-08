@@ -11,7 +11,7 @@
   </defs>
 
   <!-- Background circle -->
-  <circle cx="64" cy="64" r="60" fill="#1E1E1E"/>
+  <circle cx="64" cy="64" r="58" fill="#1E1E1E" stroke="#ffffff" stroke-width="3"/>
 
   <!-- Beaker/Flask shape -->
   <path d="M44 20 L44 50 L28 90 Q24 100 32 106 L96 106 Q104 100 100 90 L84 50 L84 20"
