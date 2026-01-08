@@ -10,9 +10,11 @@ Run and debug [hapijs/lab](https://hapi.dev/module/lab/) tests directly from VS 
 - **Native Test Explorer Integration**: Tests appear in VS Code's Test Explorer sidebar with green play arrows in the gutter
 - **Run Individual Tests**: Click the play button next to any `test()`, `it()`, `describe()`, or `experiment()` block to run it
 - **Run All Tests**: Run entire test files or all tests at once from the Test Explorer panel
-- **Live Results**: See test pass/fail status with colored output directly in the editor
+- **Live Results**: See test pass/fail status with colored ANSI output directly in the Test Results panel
 - **Real-time Discovery**: Tests are automatically discovered and updated as you edit your files
-- **Source Map Support**: Debug your tests with full source map support for easy debugging in DevTools
+- **Pretest Script Support**: Optionally run your `pretest` npm script before executing tests
+- **Flexible Test Execution**: Configure whether to use `npm test` or call `lab` directly via npx
+- **Source Map Support**: Debug your tests with full source map support for easy debugging
 
 ## Quick Start
 
@@ -53,16 +55,20 @@ Configure the extension through VS Code settings (`Cmd+,` or `Ctrl+,`):
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| `labTestExplorer.testMatch` | `**/test/**/*.{js,ts}` | Glob pattern to match test files |
+| `labTestExplorer.testMatch` | `**/{test,tests,__tests__}/**/*.{js,ts}` | Glob pattern to match test files |
 | `labTestExplorer.labPath` | `""` | Path to lab executable (leave empty to use npx) |
 | `labTestExplorer.timeout` | `30000` | Test timeout in milliseconds |
+| `labTestExplorer.runPretest` | `true` | Run the pretest script from package.json before executing tests |
+| `labTestExplorer.useNpmTest` | `"auto"` | How to run tests: `auto` uses `npm test` if a test script exists, `always` always uses `npm test`, `never` calls lab directly |
 
 ### Example Settings
 
 ```json
 {
   "labTestExplorer.testMatch": "**/test/**/*.test.ts",
-  "labTestExplorer.timeout": 60000
+  "labTestExplorer.timeout": 60000,
+  "labTestExplorer.runPretest": false,
+  "labTestExplorer.useNpmTest": "never"
 }
 ```
 
@@ -131,17 +137,29 @@ npm install
 # Compile TypeScript
 npm run compile
 
-# Watch for changes
+# Watch for changes during development
 npm run watch
 
 # Run tests
 npm test
 
+# Run tests in watch mode
+npm run test:watch
+
+# Run tests with coverage
+npm run test:coverage
+
 # Lint code
 npm run lint
 
-# Package extension
+# Lint and auto-fix issues
+npm run lint:fix
+
+# Package extension for production
 npm run package
+
+# Create .vsix file for distribution
+npm run vsce:package
 ```
 
 ## Contributing
