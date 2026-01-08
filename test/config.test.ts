@@ -18,7 +18,7 @@ describe('config', () => {
     it('should return default configuration values', () => {
       const config = getConfig();
 
-      expect(config.testMatch).toBe('**/test/**/*.{js,ts}');
+      expect(config.testMatch).toBe('**/{test,tests,__tests__}/**/*.{js,ts}');
       expect(config.labPath).toBe('');
       expect(config.timeout).toBe(30000);
     });

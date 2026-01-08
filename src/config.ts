@@ -33,7 +33,7 @@ export function getConfig(): LabTestConfig {
   const config = vscode.workspace.getConfiguration('labTestExplorer');
 
   return {
-    testMatch: config.get<string>('testMatch', '**/test/**/*.{js,ts}'),
+    testMatch: config.get<string>('testMatch', '**/{test,tests,__tests__}/**/*.{js,ts}'),
     labPath: config.get<string>('labPath', ''),
     timeout: config.get<number>('timeout', 30000),
   };

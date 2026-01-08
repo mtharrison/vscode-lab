@@ -43,7 +43,7 @@
       "properties": {
         "labTestExplorer.testMatch": {
           "type": "string",
-          "default": "**/test/**/*.{js,ts}",
+          "default": "**/{test,tests,__tests__}/**/*.{js,ts}",
           "description": "Glob pattern to match test files"
         },
         "labTestExplorer.labPath": {
