@@ -108,18 +108,3 @@ export function escapeRegExp(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-/**
- * Escapes a string for safe use as a shell argument.
- *
- * Wraps the string in single quotes and escapes any embedded single quotes
- * by ending the quoted section, adding an escaped quote, and restarting.
- * This prevents shell injection when passing test names to the lab CLI.
- *
- * @param text - The string to escape for shell usage
- * @returns The safely escaped shell argument
- */
-export function escapeShellArg(text: string): string {
-  // Wrap in single quotes and escape any embedded single quotes
-  // by ending the single-quoted string, adding an escaped single quote, and restarting
-  return `'${text.replace(/'/g, "'\\''")}'`;
-}
