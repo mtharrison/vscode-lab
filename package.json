@@ -36,7 +36,7 @@
     "onLanguage:javascript",
     "onLanguage:typescript"
   ],
-  "main": "./out/extension.js",
+  "main": "./dist/extension.js",
   "contributes": {
     "configuration": {
       "title": "Lab Test Explorer",
@@ -63,7 +63,11 @@
         },
         "labTestExplorer.useNpmTest": {
           "type": "string",
-          "enum": ["auto", "always", "never"],
+          "enum": [
+            "auto",
+            "always",
+            "never"
+          ],
           "default": "auto",
           "description": "How to run tests. 'auto' (default): use 'npm test' if a test script exists, otherwise call lab directly. 'always': always use 'npm test'. 'never': always call lab directly."
         }
@@ -71,17 +75,18 @@
     }
   },
   "scripts": {
-    "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./",
+    "vscode:prepublish": "npm run package",
+    "compile": "node esbuild.js",
+    "watch": "node esbuild.js --watch",
+    "package": "node esbuild.js --production",
     "lint": "eslint src --ext ts",
     "lint:fix": "eslint src --ext ts --fix",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "pretest": "npm run compile",
-    "package": "vsce package",
-    "publish": "vsce publish"
+    "pretest": "tsc -p ./ --noEmit",
+    "vsce:package": "vsce package",
+    "vsce:publish": "vsce publish"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
@@ -90,6 +95,7 @@
     "@typescript-eslint/parser": "^6.13.0",
     "@vitest/coverage-v8": "^1.0.0",
     "@vscode/vsce": "^2.22.0",
+    "esbuild": "^0.27.2",
     "eslint": "^8.55.0",
     "typescript": "^5.3.0",
     "vitest": "^1.0.0"
