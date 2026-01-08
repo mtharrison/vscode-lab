@@ -40,14 +40,16 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Bump version, publish, and push
+      - name: Bump version and push
         run: |
-          npx @vscode/vsce publish -p ${{ secrets.VSCE_PAT }} patch
-          # Amend the version commit to add [skip ci] to prevent infinite loop
-          git commit --amend -m "$(git log -1 --format=%s) [skip ci]"
+          # Bump patch version - this creates a commit
+          npm version patch -m "%s [skip ci]"
           git push
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish to VS Code Marketplace
+        run: npx @vscode/vsce publish -p ${{ secrets.VSCE_PAT }}
 
       # - name: Publish to Open VSX Registry
       #   run: npx ovsx publish -p ${{ secrets.OVSX_PAT }}
