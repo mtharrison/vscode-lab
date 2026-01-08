@@ -9,6 +9,7 @@
  */
 import * as vscode from 'vscode';
 import * as path from 'path';
+import * as fs from 'fs';
 import { spawn } from 'child_process';
 import { getConfig } from './config';
 import { escapeRegExp, escapeShellArg } from './testParser';
@@ -26,6 +27,114 @@ export interface TestResult {
   duration: number;
   message?: string;
   output?: string;
+}
+
+/**
+ * Reads a script from the target project's package.json.
+ *
+ * @param cwd - The working directory (project root) to look for package.json
+ * @param scriptName - The name of the script to read (e.g., 'test', 'pretest')
+ * @returns The script command if found, undefined otherwise
+ */
+function getPackageScript(cwd: string, scriptName: string): string | undefined {
+  const packageJsonPath = path.join(cwd, 'package.json');
+
+  try {
+    if (!fs.existsSync(packageJsonPath)) {
+      return undefined;
+    }
+
+    const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+    return packageJson?.scripts?.[scriptName];
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Determines whether to use npm test based on config and project setup.
+ *
+ * @param config - The extension configuration
+ * @param cwd - The working directory (project root)
+ * @returns true if npm test should be used, false for direct lab invocation
+ */
+function shouldUseNpmTest(config: { useNpmTest: 'auto' | 'always' | 'never' }, cwd: string): boolean {
+  if (config.useNpmTest === 'always') {
+    return true;
+  }
+  if (config.useNpmTest === 'never') {
+    return false;
+  }
+  // 'auto': use npm test if a test script exists
+  return getPackageScript(cwd, 'test') !== undefined;
+}
+
+/**
+ * Executes the pretest script from the target project's package.json.
+ *
+ * Runs the pretest script before lab tests to ensure test setup is complete.
+ * Output is streamed to the test run output panel.
+ *
+ * @param cwd - The working directory to run the script in
+ * @param run - The active test run for output streaming
+ * @param token - Cancellation token to support stopping the script
+ * @returns Promise resolving to true if successful (or no pretest), false if failed
+ */
+async function runPretestScript(
+  cwd: string,
+  run: vscode.TestRun,
+  token: vscode.CancellationToken
+): Promise<boolean> {
+  const config = getConfig();
+
+  if (!config.runPretest) {
+    return true;
+  }
+
+  const pretestScript = getPackageScript(cwd, 'pretest');
+  if (!pretestScript) {
+    return true;
+  }
+
+  run.appendOutput(`Running pretest: ${pretestScript}\r\n`);
+  run.appendOutput('─'.repeat(50) + '\r\n');
+
+  return new Promise<boolean>((resolve) => {
+    const proc = spawn('npm', ['run', 'pretest'], {
+      cwd,
+      shell: true,
+      env: { ...process.env, FORCE_COLOR: '1' },
+    });
+
+    token.onCancellationRequested(() => {
+      proc.kill('SIGTERM');
+      resolve(false);
+    });
+
+    proc.stdout.on('data', (data: Buffer) => {
+      run.appendOutput(data.toString().replace(/\n/g, '\r\n'));
+    });
+
+    proc.stderr.on('data', (data: Buffer) => {
+      run.appendOutput(data.toString().replace(/\n/g, '\r\n'));
+    });
+
+    proc.on('close', (code) => {
+      run.appendOutput('─'.repeat(50) + '\r\n');
+      if (code === 0) {
+        run.appendOutput('Pretest completed successfully\r\n\r\n');
+        resolve(true);
+      } else {
+        run.appendOutput(`Pretest failed with exit code ${code}\r\n\r\n`);
+        resolve(false);
+      }
+    });
+
+    proc.on('error', (err) => {
+      run.appendOutput(`Pretest error: ${err.message}\r\n`);
+      resolve(false);
+    });
+  });
 }
 
 /**
@@ -62,14 +171,28 @@ export async function runLabTest(
   const escapedName = escapeRegExp(testName);
   const shellSafeName = escapeShellArg(escapedName);
 
-  const args = [
-    'lab',
-    '-m', config.timeout.toString(),
-    '-v',
-    '-r', 'console',
-    '-g', shellSafeName,
-    testFilePath,
-  ];
+  let command: string;
+  let args: string[];
+
+  const useNpmTest = shouldUseNpmTest(config, cwd);
+
+  if (useNpmTest) {
+    // Run via npm test, passing lab args after --
+    // The test script chain (e.g., wolo -> lab) handles timeout/reporter
+    command = 'npm';
+    args = ['test', '--', '-g', shellSafeName, testFilePath];
+  } else {
+    // Run lab directly via npx
+    command = 'npx';
+    args = [
+      'lab',
+      '-m', config.timeout.toString(),
+      '-v',
+      '-r', 'console',
+      '-g', shellSafeName,
+      testFilePath,
+    ];
+  }
 
   run.started(testItem);
   const startTime = Date.now();
@@ -78,7 +201,7 @@ export async function runLabTest(
     let output = '';
     let errorOutput = '';
 
-    const proc = spawn('npx', args, {
+    const proc = spawn(command, args, {
       cwd,
       shell: true,
       env: { ...process.env, FORCE_COLOR: '1' },
@@ -144,6 +267,7 @@ function parseErrorMessage(output: string): string | undefined {
 /**
  * Executes multiple tests sequentially.
  *
+ * Runs the pretest script (if configured and present) before executing tests.
  * Iterates through all provided test items and runs each one in order.
  * Respects cancellation requests by skipping remaining tests when cancelled.
  *
@@ -156,6 +280,32 @@ export async function runAllTests(
   run: vscode.TestRun,
   token: vscode.CancellationToken
 ): Promise<void> {
+  if (testItems.length === 0) {
+    return;
+  }
+
+  const config = getConfig();
+
+  // Determine the working directory from the first test item
+  const firstItem = testItems[0];
+  const workspaceFolder = firstItem.uri
+    ? vscode.workspace.getWorkspaceFolder(firstItem.uri)
+    : undefined;
+  const cwd = workspaceFolder?.uri.fsPath || (firstItem.uri ? path.dirname(firstItem.uri.fsPath) : undefined);
+
+  // Run pretest script if available (skip if using npm test since npm handles it)
+  const useNpmTest = cwd ? shouldUseNpmTest(config, cwd) : false;
+  if (cwd && !useNpmTest) {
+    const pretestSuccess = await runPretestScript(cwd, run, token);
+    if (!pretestSuccess) {
+      // If pretest failed, mark all tests as failed
+      for (const item of testItems) {
+        run.failed(item, new vscode.TestMessage('Pretest script failed'));
+      }
+      return;
+    }
+  }
+
   for (const item of testItems) {
     if (token.isCancellationRequested) {
       run.skipped(item);

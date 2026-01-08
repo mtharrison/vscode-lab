@@ -14,11 +14,15 @@ import * as vscode from 'vscode';
  * @property testMatch - Glob pattern for matching test files (e.g., `** /test/** /*.{js,ts}`)
  * @property labPath - Custom path to the lab executable, or empty string to use npx
  * @property timeout - Test execution timeout in milliseconds
+ * @property runPretest - Whether to run the pretest script from package.json before tests
+ * @property useNpmTest - How to run tests: 'auto' detects based on test script, 'always'/'never' force behavior
  */
 export interface LabTestConfig {
   testMatch: string;
   labPath: string;
   timeout: number;
+  runPretest: boolean;
+  useNpmTest: 'auto' | 'always' | 'never';
 }
 
 /**
@@ -36,6 +40,8 @@ export function getConfig(): LabTestConfig {
     testMatch: config.get<string>('testMatch', '**/{test,tests,__tests__}/**/*.{js,ts}'),
     labPath: config.get<string>('labPath', ''),
     timeout: config.get<number>('timeout', 30000),
+    runPretest: config.get<boolean>('runPretest', true),
+    useNpmTest: config.get<'auto' | 'always' | 'never'>('useNpmTest', 'auto'),
   };
 }
 
