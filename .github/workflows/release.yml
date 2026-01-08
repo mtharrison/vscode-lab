@@ -1,8 +1,12 @@
 name: Release
 
 on:
+  push:
+    branches:
+      - main
   release:
-    types: [published]
+    types:
+      - created
 
 jobs:
   publish:
