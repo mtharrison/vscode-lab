@@ -2,7 +2,7 @@
   "name": "vscode-lab-test-runner",
   "displayName": "Vscode hapi/lab Test Runner",
   "description": "Run and debug hapijs/lab tests with VS Code's native Test Explorer",
-  "version": "5.0.7",
+  "version": "5.0.8",
   "license": "BSD-3-Clause",
   "icon": "images/icon.png",
   "galleryBanner": {
@@ -63,7 +63,11 @@
         },
         "labTestExplorer.useNpmTest": {
           "type": "string",
-          "enum": ["auto", "always", "never"],
+          "enum": [
+            "auto",
+            "always",
+            "never"
+          ],
           "default": "auto",
           "description": "How to run tests. 'auto' (default): use 'npm test' if a test script exists, otherwise call lab directly. 'always': always use 'npm test'. 'never': always call lab directly."
         }
