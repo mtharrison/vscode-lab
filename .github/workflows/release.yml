@@ -8,13 +8,20 @@ on:
     types:
       - created
 
+permissions:
+  contents: write
+
 jobs:
   publish:
     runs-on: ubuntu-latest
+    # Skip if this is an automated version bump commit
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -28,8 +35,19 @@ jobs:
       - name: Run tests
         run: npm test
 
-      - name: Publish to VS Code Marketplace
-        run: npx @vscode/vsce publish -p ${{ secrets.VSCE_PAT }} patch
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Bump version, publish, and push
+        run: |
+          npx @vscode/vsce publish -p ${{ secrets.VSCE_PAT }} patch
+          # Amend the version commit to add [skip ci] to prevent infinite loop
+          git commit --amend -m "$(git log -1 --format=%s) [skip ci]"
+          git push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # - name: Publish to Open VSX Registry
       #   run: npx ovsx publish -p ${{ secrets.OVSX_PAT }}
