@@ -44,8 +44,10 @@ function getPackageScript(cwd: string, scriptName: string): string | undefined {
       return undefined;
     }
 
-    const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
-    return packageJson?.scripts?.[scriptName];
+    const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8')) as {
+      scripts?: Record<string, string>;
+    };
+    return packageJson.scripts?.[scriptName];
   } catch {
     return undefined;
   }
