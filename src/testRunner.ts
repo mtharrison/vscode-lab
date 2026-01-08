@@ -12,7 +12,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { spawn } from 'child_process';
 import { getConfig } from './config';
-import { escapeRegExp, escapeShellArg } from './testParser';
+import { escapeRegExp } from './testParser';
 
 /**
  * Result of a single test execution.
@@ -104,7 +104,6 @@ async function runPretestScript(
   return new Promise<boolean>((resolve) => {
     const proc = spawn('npm', ['run', 'pretest'], {
       cwd,
-      shell: true,
       env: { ...process.env, FORCE_COLOR: '1' },
     });
 
@@ -171,7 +170,6 @@ export async function runLabTest(
 
   const testName = testItem.label;
   const escapedName = escapeRegExp(testName);
-  const shellSafeName = escapeShellArg(escapedName);
 
   let command: string;
   let args: string[];
@@ -182,7 +180,7 @@ export async function runLabTest(
     // Run via npm test, passing lab args after --
     // The test script chain (e.g., wolo -> lab) handles timeout/reporter
     command = 'npm';
-    args = ['test', '--', '-g', shellSafeName, testFilePath];
+    args = ['test', '--', '-g', escapedName, testFilePath];
   } else {
     // Run lab directly via npx
     command = 'npx';
@@ -191,7 +189,7 @@ export async function runLabTest(
       '-m', config.timeout.toString(),
       '-v',
       '-r', 'console',
-      '-g', shellSafeName,
+      '-g', escapedName,
       testFilePath,
     ];
   }
@@ -205,7 +203,6 @@ export async function runLabTest(
 
     const proc = spawn(command, args, {
       cwd,
-      shell: true,
       env: { ...process.env, FORCE_COLOR: '1' },
     });
 

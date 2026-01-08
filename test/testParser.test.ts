@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseTestFile, escapeRegExp, escapeShellArg } from '../src/testParser';
+import { parseTestFile, escapeRegExp } from '../src/testParser';
 
 describe('testParser', () => {
   describe('parseTestFile', () => {
@@ -294,44 +294,4 @@ describe('testParser', () => {
     });
   });
 
-  describe('escapeShellArg', () => {
-    it('should wrap simple strings in single quotes', () => {
-      expect(escapeShellArg('simple')).toBe("'simple'");
-    });
-
-    it('should preserve spaces within quotes', () => {
-      expect(escapeShellArg('test with spaces')).toBe("'test with spaces'");
-    });
-
-    it('should handle strings with parentheses', () => {
-      expect(escapeShellArg('test (with parens)')).toBe("'test (with parens)'");
-    });
-
-    it('should escape embedded single quotes', () => {
-      expect(escapeShellArg("it's a test")).toBe("'it'\\''s a test'");
-    });
-
-    it('should handle multiple single quotes', () => {
-      expect(escapeShellArg("don't won't can't")).toBe(
-        "'don'\\''t won'\\''t can'\\''t'"
-      );
-    });
-
-    it('should handle empty strings', () => {
-      expect(escapeShellArg('')).toBe("''");
-    });
-
-    it('should handle complex test names with special chars', () => {
-      const testName = 'returns cost for model and token counts (for dedicated provider)';
-      const escaped = escapeShellArg(testName);
-      expect(escaped).toBe("'returns cost for model and token counts (for dedicated provider)'");
-    });
-
-    it('should handle test names with regex-escaped characters', () => {
-      // After escapeRegExp, the string might have backslashes
-      const regexEscaped = escapeRegExp('test.name (with) [brackets]');
-      const shellEscaped = escapeShellArg(regexEscaped);
-      expect(shellEscaped).toBe("'test\\.name \\(with\\) \\[brackets\\]'");
-    });
-  });
 });
