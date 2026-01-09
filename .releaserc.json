@@ -10,7 +10,7 @@
       "npmPublish": false
     }],
     ["@semantic-release/exec", {
-      "prepareCmd": "npm run package",
+      "prepareCmd": "npm run package && npx @vscode/vsce package ${nextRelease.version}",
       "publishCmd": "npx @vscode/vsce publish -p ${process.env.VSCE_PAT}"
     }],
     ["@semantic-release/github", {
