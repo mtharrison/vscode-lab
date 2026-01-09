@@ -181,8 +181,11 @@ export async function runLabTest(
     // Run via npm test, passing lab args after --
     // The test script chain (e.g., wolo -> lab) handles timeout/reporter
     // Need shell: true and escapeShellArg because npm passes -- args through shell
+    // Replace apostrophes with . (regex any-char) to avoid shell escaping issues
+    // in multi-shell environments - the dot will still match the apostrophe
+    const shellSafeName = escapedName.replace(/'/g, '.');
     command = 'npm';
-    args = ['test', '--', '-g', escapeShellArg(escapedName), testFilePath];
+    args = ['test', '--', '-g', escapeShellArg(shellSafeName), testFilePath];
     useShell = true;
   } else {
     // Run lab directly via npx
