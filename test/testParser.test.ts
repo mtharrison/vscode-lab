@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseTestFile, escapeRegExp } from '../src/testParser';
+import { parseTestFile, escapeRegExp, escapeShellArg } from '../src/testParser';
 
 describe('testParser', () => {
   describe('parseTestFile', () => {
@@ -291,6 +291,40 @@ describe('testParser', () => {
       expect(escapeRegExp('test.name (with) [brackets]')).toBe(
         'test\\.name \\(with\\) \\[brackets\\]'
       );
+    });
+  });
+
+  describe('escapeShellArg', () => {
+    it('should wrap simple strings in single quotes', () => {
+      expect(escapeShellArg('test')).toBe("'test'");
+    });
+
+    it('should preserve spaces inside quotes', () => {
+      expect(escapeShellArg('creates a snapshot')).toBe("'creates a snapshot'");
+    });
+
+    it('should escape embedded single quotes', () => {
+      expect(escapeShellArg("test's name")).toBe("'test'\\''s name'");
+    });
+
+    it('should handle multiple single quotes', () => {
+      expect(escapeShellArg("it's a test's test")).toBe("'it'\\''s a test'\\''s test'");
+    });
+
+    it('should handle empty strings', () => {
+      expect(escapeShellArg('')).toBe("''");
+    });
+
+    it('should handle strings with special shell characters', () => {
+      expect(escapeShellArg('test$var')).toBe("'test$var'");
+      expect(escapeShellArg('test`cmd`')).toBe("'test`cmd`'");
+      expect(escapeShellArg('test;rm -rf')).toBe("'test;rm -rf'");
+    });
+
+    it('should handle regex-escaped strings with spaces', () => {
+      // Typical usage: escapeShellArg(escapeRegExp(testName))
+      const regexEscaped = escapeRegExp('test.name (with) spaces');
+      expect(escapeShellArg(regexEscaped)).toBe("'test\\.name \\(with\\) spaces'");
     });
   });
 
