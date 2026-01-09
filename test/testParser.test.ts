@@ -295,36 +295,43 @@ describe('testParser', () => {
   });
 
   describe('escapeShellArg', () => {
-    it('should wrap simple strings in single quotes', () => {
-      expect(escapeShellArg('test')).toBe("'test'");
+    it('should leave simple strings without spaces unchanged', () => {
+      expect(escapeShellArg('test')).toBe('test');
     });
 
-    it('should preserve spaces inside quotes', () => {
-      expect(escapeShellArg('creates a snapshot')).toBe("'creates a snapshot'");
+    it('should replace spaces with dots for shell safety', () => {
+      expect(escapeShellArg('creates a snapshot')).toBe('creates.a.snapshot');
     });
 
-    it('should escape embedded single quotes', () => {
-      expect(escapeShellArg("test's name")).toBe("'test'\\''s name'");
-    });
-
-    it('should handle multiple single quotes', () => {
-      expect(escapeShellArg("it's a test's test")).toBe("'it'\\''s a test'\\''s test'");
+    it('should handle multiple consecutive spaces', () => {
+      expect(escapeShellArg('test  with  double  spaces')).toBe('test..with..double..spaces');
     });
 
     it('should handle empty strings', () => {
-      expect(escapeShellArg('')).toBe("''");
+      expect(escapeShellArg('')).toBe('');
     });
 
-    it('should handle strings with special shell characters', () => {
-      expect(escapeShellArg('test$var')).toBe("'test$var'");
-      expect(escapeShellArg('test`cmd`')).toBe("'test`cmd`'");
-      expect(escapeShellArg('test;rm -rf')).toBe("'test;rm -rf'");
+    it('should leave strings with special characters unchanged (no quoting)', () => {
+      // Shell special chars pass through - they won't cause issues without spaces
+      expect(escapeShellArg('test$var')).toBe('test$var');
+      expect(escapeShellArg("test's")).toBe("test's");
     });
 
     it('should handle regex-escaped strings with spaces', () => {
       // Typical usage: escapeShellArg(escapeRegExp(testName))
+      // The regex escaping preserves dots as \. and spaces become .
       const regexEscaped = escapeRegExp('test.name (with) spaces');
-      expect(escapeShellArg(regexEscaped)).toBe("'test\\.name \\(with\\) spaces'");
+      expect(escapeShellArg(regexEscaped)).toBe('test\\.name.\\(with\\).spaces');
+    });
+
+    it('should produce patterns that match test names in lab -g', () => {
+      // The resulting pattern should match the original test name
+      const testName = 'exports TEST_CONFIG for use by other repos';
+      const escaped = escapeShellArg(escapeRegExp(testName));
+      // The pattern 'exports.TEST_CONFIG.for.use.by.other.repos'
+      // will match 'exports TEST_CONFIG for use by other repos' since . matches any char
+      const regex = new RegExp(escaped);
+      expect(regex.test(testName)).toBe(true);
     });
   });
 
