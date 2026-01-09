@@ -16,6 +16,10 @@ import * as vscode from 'vscode';
  * @property timeout - Test execution timeout in milliseconds
  * @property runPretest - Whether to run the pretest script from package.json before tests
  * @property useNpmTest - How to run tests: 'auto' detects based on test script, 'always'/'never' force behavior
+ * @property optimizeTestSpeed - Whether to optimize test speed by skipping non-essential steps
+ * @property skipLinting - Skip linting commands in pretest/test scripts for faster execution
+ * @property skipCoverage - Skip coverage collection for faster execution
+ * @property skipTypeCheck - Skip TypeScript type checking in pretest scripts for faster execution
  */
 export interface LabTestConfig {
   testMatch: string;
@@ -23,6 +27,10 @@ export interface LabTestConfig {
   timeout: number;
   runPretest: boolean;
   useNpmTest: 'auto' | 'always' | 'never';
+  optimizeTestSpeed: boolean;
+  skipLinting: boolean;
+  skipCoverage: boolean;
+  skipTypeCheck: boolean;
 }
 
 /**
@@ -36,12 +44,19 @@ export interface LabTestConfig {
 export function getConfig(): LabTestConfig {
   const config = vscode.workspace.getConfiguration('labTestExplorer');
 
+  const optimizeTestSpeed = config.get<boolean>('optimizeTestSpeed', true);
+
   return {
     testMatch: config.get<string>('testMatch', '**/{test,tests,__tests__}/**/*.{js,ts}'),
     labPath: config.get<string>('labPath', ''),
     timeout: config.get<number>('timeout', 30000),
     runPretest: config.get<boolean>('runPretest', true),
     useNpmTest: config.get<'auto' | 'always' | 'never'>('useNpmTest', 'auto'),
+    optimizeTestSpeed,
+    // When optimizeTestSpeed is enabled, these default to true; otherwise false
+    skipLinting: config.get<boolean>('skipLinting', optimizeTestSpeed),
+    skipCoverage: config.get<boolean>('skipCoverage', optimizeTestSpeed),
+    skipTypeCheck: config.get<boolean>('skipTypeCheck', optimizeTestSpeed),
   };
 }
 

@@ -70,6 +70,26 @@
           ],
           "default": "auto",
           "description": "How to run tests. 'auto' (default): use 'npm test' if a test script exists, otherwise call lab directly. 'always': always use 'npm test'. 'never': always call lab directly."
+        },
+        "labTestExplorer.optimizeTestSpeed": {
+          "type": "boolean",
+          "default": true,
+          "description": "Optimize test execution speed by skipping non-essential steps like linting, coverage, and type-checking. When enabled, the individual skip options default to true."
+        },
+        "labTestExplorer.skipLinting": {
+          "type": "boolean",
+          "default": true,
+          "description": "Skip linting commands (eslint, prettier, etc.) in pretest and test scripts for faster execution."
+        },
+        "labTestExplorer.skipCoverage": {
+          "type": "boolean",
+          "default": true,
+          "description": "Skip code coverage collection (nyc, c8, --coverage flags) for faster test execution."
+        },
+        "labTestExplorer.skipTypeCheck": {
+          "type": "boolean",
+          "default": true,
+          "description": "Skip TypeScript type checking (tsc --noEmit) in pretest scripts for faster test execution."
         }
       }
     }

@@ -13,6 +13,11 @@ import * as fs from 'fs';
 import { spawn } from 'child_process';
 import { getConfig } from './config';
 import { buildTestPattern } from './testParser';
+import {
+  optimizePretestScript,
+  describeOptimizations,
+  type OptimizationOptions,
+} from './testCommandOptimizer';
 
 /**
  * Result of a single test execution.
@@ -72,9 +77,25 @@ function shouldUseNpmTest(config: { useNpmTest: 'auto' | 'always' | 'never' }, c
 }
 
 /**
+ * Gets optimization options from the current configuration.
+ *
+ * @returns The optimization options based on config
+ */
+function getOptimizationOptions(): OptimizationOptions {
+  const config = getConfig();
+  return {
+    skipLinting: config.skipLinting,
+    skipCoverage: config.skipCoverage,
+    skipTypeCheck: config.skipTypeCheck,
+  };
+}
+
+/**
  * Executes the pretest script from the target project's package.json.
  *
  * Runs the pretest script before lab tests to ensure test setup is complete.
+ * When optimization is enabled, non-essential commands (linting, type-checking)
+ * may be skipped for faster test execution.
  * Output is streamed to the test run output panel.
  *
  * @param cwd - The working directory to run the script in
@@ -98,6 +119,37 @@ async function runPretestScript(
     return true;
   }
 
+  // Check if we should optimize the pretest command
+  const optimizationOptions = getOptimizationOptions();
+  const anyOptimizationsEnabled =
+    optimizationOptions.skipLinting ||
+    optimizationOptions.skipCoverage ||
+    optimizationOptions.skipTypeCheck;
+
+  if (anyOptimizationsEnabled) {
+    const optimizationResult = optimizePretestScript(pretestScript, optimizationOptions);
+
+    // If optimization result is null, all pretest commands can be skipped
+    if (optimizationResult === null) {
+      const skippedItems = describeOptimizations(optimizationOptions);
+      run.appendOutput(`⚡ Skipping pretest (${skippedItems.join(', ')}) for faster execution\r\n`);
+      run.appendOutput('─'.repeat(50) + '\r\n\r\n');
+      return true;
+    }
+
+    // If some segments were skipped, run the optimized command
+    if (optimizationResult.skippedSegments.length > 0) {
+      run.appendOutput(`⚡ Optimizing pretest for speed\r\n`);
+      run.appendOutput(`   Original: ${pretestScript}\r\n`);
+      run.appendOutput(`   Optimized: ${optimizationResult.optimizedCommand}\r\n`);
+      run.appendOutput(`   Skipped: ${optimizationResult.skippedSegments.map((s) => s.category).join(', ')}\r\n`);
+      run.appendOutput('─'.repeat(50) + '\r\n');
+
+      return runShellCommand(optimizationResult.optimizedCommand, cwd, run, token);
+    }
+  }
+
+  // Run the original pretest command
   run.appendOutput(`Running pretest: ${pretestScript}\r\n`);
   run.appendOutput('─'.repeat(50) + '\r\n');
 
@@ -133,6 +185,59 @@ async function runPretestScript(
 
     proc.on('error', (err) => {
       run.appendOutput(`Pretest error: ${err.message}\r\n`);
+      resolve(false);
+    });
+  });
+}
+
+/**
+ * Executes a shell command and streams output to the test run.
+ *
+ * @param command - The shell command to run
+ * @param cwd - The working directory
+ * @param run - The active test run for output streaming
+ * @param token - Cancellation token
+ * @returns Promise resolving to true if command succeeded, false otherwise
+ */
+async function runShellCommand(
+  command: string,
+  cwd: string,
+  run: vscode.TestRun,
+  token: vscode.CancellationToken
+): Promise<boolean> {
+  return new Promise<boolean>((resolve) => {
+    const proc = spawn(command, [], {
+      cwd,
+      shell: true,
+      env: { ...process.env, FORCE_COLOR: '1' },
+    });
+
+    token.onCancellationRequested(() => {
+      proc.kill('SIGTERM');
+      resolve(false);
+    });
+
+    proc.stdout.on('data', (data: Buffer) => {
+      run.appendOutput(data.toString().replace(/\n/g, '\r\n'));
+    });
+
+    proc.stderr.on('data', (data: Buffer) => {
+      run.appendOutput(data.toString().replace(/\n/g, '\r\n'));
+    });
+
+    proc.on('close', (code) => {
+      run.appendOutput('─'.repeat(50) + '\r\n');
+      if (code === 0) {
+        run.appendOutput('Command completed successfully\r\n\r\n');
+        resolve(true);
+      } else {
+        run.appendOutput(`Command failed with exit code ${code}\r\n\r\n`);
+        resolve(false);
+      }
+    });
+
+    proc.on('error', (err) => {
+      run.appendOutput(`Command error: ${err.message}\r\n`);
       resolve(false);
     });
   });
