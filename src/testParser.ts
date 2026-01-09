@@ -108,3 +108,17 @@ export function escapeRegExp(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+/**
+ * Escapes a string for safe use as a shell argument.
+ *
+ * Wraps the string in single quotes and escapes any embedded single quotes.
+ * This is needed when passing test names through npm test -- because npm
+ * passes arguments through shell interpretation.
+ *
+ * @param text - The string to escape for shell usage
+ * @returns The safely escaped shell argument
+ */
+export function escapeShellArg(text: string): string {
+  return `'${text.replace(/'/g, "'\\''")}'`;
+}
+
