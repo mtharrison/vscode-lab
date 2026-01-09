@@ -7,7 +7,8 @@
       "changelogFile": "CHANGELOG.md"
     }],
     ["@semantic-release/npm", {
-      "npmPublish": false
+      "npmPublish": false,
+      "tarballDir": false
     }],
     ["@semantic-release/exec", {
       "prepareCmd": "npm run package && npx @vscode/vsce package ${nextRelease.version}",
