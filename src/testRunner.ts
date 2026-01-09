@@ -12,7 +12,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { spawn } from 'child_process';
 import { getConfig } from './config';
-import { escapeRegExp } from './testParser';
+import { escapeRegExp, escapeShellArg } from './testParser';
 
 /**
  * Result of a single test execution.
@@ -173,16 +173,20 @@ export async function runLabTest(
 
   let command: string;
   let args: string[];
+  let useShell = false;
 
   const useNpmTest = shouldUseNpmTest(config, cwd);
 
   if (useNpmTest) {
     // Run via npm test, passing lab args after --
     // The test script chain (e.g., wolo -> lab) handles timeout/reporter
+    // Need shell: true and escapeShellArg because npm passes -- args through shell
     command = 'npm';
-    args = ['test', '--', '-g', escapedName, testFilePath];
+    args = ['test', '--', '-g', escapeShellArg(escapedName), testFilePath];
+    useShell = true;
   } else {
     // Run lab directly via npx
+    // No shell needed - spawn passes args directly to the process
     command = 'npx';
     args = [
       'lab',
@@ -203,6 +207,7 @@ export async function runLabTest(
 
     const proc = spawn(command, args, {
       cwd,
+      shell: useShell,
       env: { ...process.env, FORCE_COLOR: '1' },
     });
 
