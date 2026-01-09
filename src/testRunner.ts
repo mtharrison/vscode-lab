@@ -12,7 +12,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { spawn } from 'child_process';
 import { getConfig } from './config';
-import { escapeRegExp, escapeShellArg } from './testParser';
+import { buildTestPattern } from './testParser';
 
 /**
  * Result of a single test execution.
@@ -169,7 +169,8 @@ export async function runLabTest(
   const cwd = workspaceFolder?.uri.fsPath || path.dirname(testFilePath);
 
   const testName = testItem.label;
-  const escapedName = escapeRegExp(testName);
+  // Build a robust pattern that works in both shell and non-shell contexts
+  const pattern = buildTestPattern(testName);
 
   let command: string;
   let args: string[];
@@ -180,9 +181,10 @@ export async function runLabTest(
   if (useNpmTest) {
     // Run via npm test, passing lab args after --
     // The test script chain (e.g., wolo -> lab) handles timeout/reporter
-    // Need shell: true and escapeShellArg because npm passes -- args through shell
+    // Need shell: true for npm to properly handle the -- separator
+    // The pattern is already safe for shell interpretation
     command = 'npm';
-    args = ['test', '--', '-g', escapeShellArg(escapedName), testFilePath];
+    args = ['test', '--', '-g', pattern, testFilePath];
     useShell = true;
   } else {
     // Run lab directly via npx
@@ -193,7 +195,7 @@ export async function runLabTest(
       '-m', config.timeout.toString(),
       '-v',
       '-r', 'console',
-      '-g', escapedName,
+      '-g', pattern,
       testFilePath,
     ];
   }

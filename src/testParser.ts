@@ -96,28 +96,79 @@ export function parseTestFile(content: string): ParsedTest[] {
 }
 
 /**
+ * Characters that are safe to use literally in both regex patterns and shell commands.
+ * These characters:
+ * - Don't have special meaning in regex
+ * - Don't have special meaning in bash/sh shells
+ * - Don't cause word splitting or glob expansion
+ */
+const SAFE_PATTERN_CHARS = /^[a-zA-Z0-9_-]$/;
+
+/**
+ * Builds a robust grep pattern for matching a test name.
+ *
+ * This function creates a regex pattern that:
+ * 1. Matches the test name when used with lab's -g (grep) flag
+ * 2. Survives shell interpretation (including multiple layers like npm -> wolo -> lab)
+ * 3. Avoids shell injection or unexpected behavior
+ *
+ * Strategy: Only use characters that are "safe" in both regex and shell contexts.
+ * Any character that might cause issues is replaced with '.' which matches any
+ * single character in regex and is harmless in shells.
+ *
+ * Trade-off: This slightly reduces pattern precision (e.g., "test name" pattern
+ * would also match "testXname"), but test names are typically unique enough that
+ * this rarely causes false matches. The pattern maintains the same length as the
+ * input, so each '.' corresponds to exactly one character position.
+ *
+ * Characters handled:
+ * - Regex specials: . * + ? ^ $ { } ( ) [ ] | \
+ * - Shell specials: space $ ` ' " ; | & < > ! ~ # * ? ( ) { } [ ] \
+ * - Whitespace: tabs, carriage returns
+ * - Unicode: any non-ASCII characters (including emoji surrogate pairs)
+ *
+ * Note: Newlines in test names are replaced with '.' but this won't match properly
+ * since regex '.' doesn't match newlines by default. Test names with literal newlines
+ * are extremely rare in practice.
+ *
+ * @param testName - The test name to convert to a pattern
+ * @returns A regex pattern safe for shell and lab's -g flag
+ */
+export function buildTestPattern(testName: string): string {
+  let pattern = '';
+
+  // Use index-based iteration to handle UTF-16 code units properly
+  // This ensures the pattern length matches the string's .length property,
+  // which is important for regex matching (since JS regex operates on code units)
+  for (let i = 0; i < testName.length; i++) {
+    const char = testName[i];
+    if (SAFE_PATTERN_CHARS.test(char)) {
+      // Alphanumeric, underscore, hyphen - safe to use literally
+      pattern += char;
+    } else {
+      // Everything else becomes '.' to match any single character
+      // This handles: spaces, shell specials, regex specials, unicode, etc.
+      pattern += '.';
+    }
+  }
+
+  return pattern;
+}
+
+/**
+ * @deprecated Use buildTestPattern instead. Kept for backward compatibility.
+ *
  * Escapes special regex characters in a string.
- *
- * Used to convert test names into safe regex patterns for the lab `-g` (grep) flag,
- * which filters tests by name using regex matching.
- *
- * @param text - The string to escape
- * @returns The string with all regex special characters escaped
+ * Used to convert test names into safe regex patterns for the lab `-g` (grep) flag.
  */
 export function escapeRegExp(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 /**
+ * @deprecated Use buildTestPattern instead. Kept for backward compatibility.
+ *
  * Escapes a string for safe use as a grep pattern across multiple shell layers.
- *
- * When test names pass through multiple shell layers (npm -> wolo -> npm -> lab),
- * traditional quoting gets stripped at each level. Instead, we replace spaces
- * with `.` (regex "any character") which matches the original space character
- * but doesn't require shell quoting to survive word-splitting.
- *
- * @param text - The regex-escaped string to make shell-safe
- * @returns The pattern with spaces replaced by regex dots
  */
 export function escapeShellArg(text: string): string {
   return text.replace(/ /g, '.');
