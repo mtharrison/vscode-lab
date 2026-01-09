@@ -1,0 +1,25 @@
+{
+  "branches": ["master"],
+  "plugins": [
+    "@semantic-release/commit-analyzer",
+    "@semantic-release/release-notes-generator",
+    ["@semantic-release/changelog", {
+      "changelogFile": "CHANGELOG.md"
+    }],
+    ["@semantic-release/npm", {
+      "npmPublish": false
+    }],
+    ["@semantic-release/exec", {
+      "prepareCmd": "npm run package"
+    }],
+    ["@semantic-release/github", {
+      "assets": [
+        {"path": "*.vsix", "label": "VS Code Extension"}
+      ]
+    }],
+    ["@semantic-release/git", {
+      "assets": ["package.json", "package-lock.json", "CHANGELOG.md"],
+      "message": "${nextRelease.version} [skip ci]\n\n${nextRelease.notes}"
+    }]
+  ]
+}
