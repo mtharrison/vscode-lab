@@ -1,3 +1,10 @@
+# [1.2.0](https://github.com/mtharrison/vscode-lab/compare/v1.1.0...v1.2.0) (2026-01-09)
+
+
+### Features
+
+* something ([5fc1f52](https://github.com/mtharrison/vscode-lab/commit/5fc1f52c4abdd054b530ab55bbd7e41136b29369))
+
 # [1.1.0](https://github.com/mtharrison/vscode-lab/compare/v1.0.0...v1.1.0) (2026-01-09)
 
 
