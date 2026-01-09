@@ -109,16 +109,17 @@ export function escapeRegExp(text: string): string {
 }
 
 /**
- * Escapes a string for safe use as a shell argument.
+ * Escapes a string for safe use as a grep pattern across multiple shell layers.
  *
- * Wraps the string in single quotes and escapes any embedded single quotes.
- * This is needed when passing test names through npm test -- because npm
- * passes arguments through shell interpretation.
+ * When test names pass through multiple shell layers (npm -> wolo -> npm -> lab),
+ * traditional quoting gets stripped at each level. Instead, we replace spaces
+ * with `.` (regex "any character") which matches the original space character
+ * but doesn't require shell quoting to survive word-splitting.
  *
- * @param text - The string to escape for shell usage
- * @returns The safely escaped shell argument
+ * @param text - The regex-escaped string to make shell-safe
+ * @returns The pattern with spaces replaced by regex dots
  */
 export function escapeShellArg(text: string): string {
-  return `'${text.replace(/'/g, "'\\''")}'`;
+  return text.replace(/ /g, '.');
 }
 
