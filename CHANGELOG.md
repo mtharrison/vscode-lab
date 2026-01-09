@@ -1,3 +1,10 @@
+## [1.2.1](https://github.com/mtharrison/vscode-lab/compare/v1.2.0...v1.2.1) (2026-01-09)
+
+
+### Bug Fixes
+
+* use process.env to access VSCE_PAT in semantic-release ([cd40465](https://github.com/mtharrison/vscode-lab/commit/cd404657ed01f0a951c22c95555452bed4423ed6))
+
 # [1.2.0](https://github.com/mtharrison/vscode-lab/compare/v1.1.0...v1.2.0) (2026-01-09)
 
 
