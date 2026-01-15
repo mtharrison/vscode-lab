@@ -109,7 +109,7 @@ const SAFE_PATTERN_CHARS = /^[a-zA-Z0-9_-]$/;
  *
  * This function creates a regex pattern that:
  * 1. Matches the test name when used with lab's -g (grep) flag
- * 2. Survives shell interpretation (including multiple layers like npm -> wolo -> lab)
+ * 2. Survives shell interpretation (including multiple layers like npm -> wrapper -> lab)
  * 3. Avoids shell injection or unexpected behavior
  *
  * Strategy: Only use characters that are "safe" in both regex and shell contexts.
