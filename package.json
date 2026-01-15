@@ -62,6 +62,11 @@
           "type": "string",
           "default": "--no-lint --no-coverage --no-leaks -v -r console",
           "description": "Additional CLI arguments to pass to lab (timeout, grep pattern, and file path are added automatically)"
+        },
+        "labTestExplorer.commandPrefix": {
+          "type": "string",
+          "default": "",
+          "description": "Command prefix to prepend when running tests (e.g., 'SKIP_DATA_GATEWAY=true wolo test --')"
         }
       }
     }

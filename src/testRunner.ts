@@ -81,10 +81,28 @@ export async function runLabTest(
     let errorOutput = "";
 
     let proc;
-    // Run lab directly through Node.js
-    // If command is a path to a JS file, use process.execPath
-    // If command is "npx lab", split and run npx directly
-    if (command.startsWith("npx ")) {
+    const commandPrefix = config.commandPrefix;
+
+    if (commandPrefix) {
+      // Add node_modules/.bin to PATH for local binaries
+      const binPath = path.join(cwd, "node_modules", ".bin");
+      const env = {
+        ...process.env,
+        FORCE_COLOR: "1",
+        PATH: `${binPath}${path.delimiter}${process.env.PATH}`,
+      };
+
+      const fullCommand = command.startsWith("npx ")
+        ? `${commandPrefix} ${command} ${args.join(" ")}`
+        : `${commandPrefix} ${command} ${args.join(" ")}`;
+
+      proc = spawn(fullCommand, [], {
+        cwd,
+        env,
+        shell: true,
+      });
+    } else if (command.startsWith("npx ")) {
+      // Run lab via npx
       const [npxCmd, ...npxArgs] = command.split(" ");
       proc = spawn(npxCmd, [...npxArgs, ...args], {
         cwd,

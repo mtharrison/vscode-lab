@@ -30,6 +30,9 @@ describe('config', () => {
         testMatch: '**/test/**/*.js',
         labPath: '',
         timeout: 30000,
+        activationCommand: '',
+        labArgs: '',
+        commandPrefix: '',
       };
 
       expect(getLabCommand(config)).toBe('npx lab');
@@ -40,6 +43,9 @@ describe('config', () => {
         testMatch: '**/test/**/*.js',
         labPath: '/usr/local/bin/lab',
         timeout: 30000,
+        activationCommand: '',
+        labArgs: '',
+        commandPrefix: '',
       };
 
       expect(getLabCommand(config)).toBe('/usr/local/bin/lab');
@@ -50,6 +56,9 @@ describe('config', () => {
         testMatch: '**/test/**/*.js',
         labPath: './node_modules/.bin/lab',
         timeout: 30000,
+        activationCommand: '',
+        labArgs: '',
+        commandPrefix: '',
       };
 
       expect(getLabCommand(config)).toBe('./node_modules/.bin/lab');

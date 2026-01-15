@@ -22,6 +22,7 @@ export interface LabTestConfig {
   timeout: number;
   activationCommand: string;
   labArgs: string;
+  commandPrefix: string;
 }
 
 /**
@@ -47,6 +48,7 @@ export function getConfig(): LabTestConfig {
       "labArgs",
       "--no-lint --no-coverage --no-leaks -v -r console"
     ),
+    commandPrefix: config.get<string>("commandPrefix", ""),
   };
 }
 
