@@ -1,5 +1,5 @@
 /**
- * @fileoverview Test execution engine for Lab Test Explorer
+ * @fileoverview Test execution engine for hapi/lab Test Runner
  *
  * Handles running individual and batch @hapi/lab tests by spawning the lab CLI
  * as a subprocess. Manages test output streaming, result parsing, and

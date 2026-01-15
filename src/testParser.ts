@@ -1,5 +1,5 @@
 /**
- * @fileoverview Test file parser for Lab Test Explorer
+ * @fileoverview Test file parser for hapi/lab Test Runner
  *
  * Uses AST parsing to detect test functions (`test()`, `it()`, `describe()`, `experiment()`)
  * in JavaScript and TypeScript files. Extracts test names and source locations for

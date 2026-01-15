@@ -1,5 +1,5 @@
 /**
- * @fileoverview Main test controller for Lab Test Explorer
+ * @fileoverview Main test controller for hapi/lab Test Runner
  *
  * Implements VSCode's TestController API to provide native Test Explorer integration.
  * Handles test discovery, file watching, and test execution orchestration for
@@ -151,7 +151,7 @@ export class LabTestController {
    * test definitions which are then displayed in the Test Explorer.
    *
    * This method is called automatically on extension activation and can
-   * be triggered manually via the "Lab Test Explorer: Refresh" command.
+   * be triggered manually via the "hapi/lab Test Runner: Refresh" command.
    */
   async discoverAllTests(): Promise<void> {
     const config = getConfig();

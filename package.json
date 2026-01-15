@@ -36,7 +36,7 @@
   "main": "./dist/extension.js",
   "contributes": {
     "configuration": {
-      "title": "Lab Test Explorer",
+      "title": "hapi/lab Test Runner",
       "properties": {
         "labTestExplorer.testMatch": {
           "type": "string",

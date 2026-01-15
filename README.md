@@ -1,4 +1,4 @@
-# Lab Test Explorer for VS Code
+# hapi/lab Test Runner for VS Code
 
 [![Visual Studio Marketplace Version](https://img.shields.io/visual-studio-marketplace/v/mtharrison.vscode-lab-test-runner)](https://marketplace.visualstudio.com/items?itemName=mtharrison.vscode-lab-test-runner)
 [![License](https://img.shields.io/badge/license-BSD--3--Clause-blue.svg)](LICENSE)
@@ -32,7 +32,7 @@ Run and debug [hapijs/lab](https://hapi.dev/module/lab/) tests directly from VS 
 
 ### From VS Code Marketplace
 
-Search for "Lab Test Explorer" in the VS Code Extensions marketplace.
+Search for "hapi/lab Test Runner" in the VS Code Extensions marketplace.
 
 ### From Command Line
 
@@ -101,7 +101,7 @@ The extension generates source maps, making it easy to debug your tests:
 ### Refreshing Tests
 
 - Click the refresh button in the Test Explorer toolbar
-- Run the command "Lab Test Explorer: Refresh" from the Command Palette
+- Run the command "hapi/lab Test Runner: Refresh" from the Command Palette
 
 ## Troubleshooting
 
@@ -113,7 +113,7 @@ The extension generates source maps, making it easy to debug your tests:
 
 ### Tests Failing to Run
 
-1. Check the "Output" panel for error messages (select "Lab Test Explorer" from the dropdown)
+1. Check the "Output" panel for error messages (select "hapi/lab Test Runner" from the dropdown)
 2. Ensure `npx lab` works from your project root
 3. Try setting an explicit `labTestExplorer.labPath` if you have a non-standard setup
 

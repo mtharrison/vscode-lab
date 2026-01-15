@@ -1,8 +1,8 @@
 /**
- * @fileoverview Configuration management for the Lab Test Explorer extension
+ * @fileoverview Configuration management for the hapi/lab Test Runner extension
  *
  * Handles reading and parsing VSCode workspace configuration settings
- * for the Lab Test Explorer extension.
+ * for the hapi/lab Test Runner extension.
  *
  * @module config
  */
@@ -10,7 +10,7 @@ import { existsSync } from "fs";
 import * as vscode from "vscode";
 
 /**
- * Configuration options for the Lab Test Explorer extension.
+ * Configuration options for the hapi/lab Test Runner extension.
  *
  * @property testMatch - Glob pattern for matching test files (e.g., `** /test/** /*.{js,ts}`)
  * @property labPath - Custom path to the lab executable, or empty string to use npx
@@ -26,7 +26,7 @@ export interface LabTestConfig {
 }
 
 /**
- * Retrieves the current Lab Test Explorer configuration from VSCode workspace settings.
+ * Retrieves the current hapi/lab Test Runner configuration from VSCode workspace settings.
  *
  * Reads settings from the `labTestExplorer` namespace and provides sensible defaults
  * when settings are not explicitly configured by the user.
@@ -59,7 +59,7 @@ export function getConfig(): LabTestConfig {
  * tries to locate a local installation of lab in the project's node_modules and
  * falls back to using npx to run lab from the project's node_modules.
  *
- * @param config - The current Lab Test Explorer configuration
+ * @param config - The current hapi/lab Test Runner configuration
  * @returns The command string to use for executing lab tests
  */
 export function getLabCommand(config: LabTestConfig): string {

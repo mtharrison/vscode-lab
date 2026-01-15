@@ -1,5 +1,5 @@
 /**
- * @fileoverview Lab Test Explorer - A VSCode extension for running @hapi/lab tests
+ * @fileoverview hapi/lab Test Runner - A VSCode extension for running @hapi/lab tests
  *
  * This extension integrates with VSCode's native Test Explorer to provide seamless
  * test discovery and execution for projects using the @hapi/lab testing framework.
@@ -40,7 +40,7 @@ let testController: LabTestController | undefined;
 let outputChannel: vscode.OutputChannel | undefined;
 
 /**
- * Activates the Lab Test Explorer extension.
+ * Activates the hapi/lab Test Runner extension.
  *
  * This function is called by VSCode when the extension is activated. It initializes
  * the test controller which handles test discovery, display in the Test Explorer,
@@ -68,7 +68,7 @@ export function activate(context: vscode.ExtensionContext): void {
         ...(pkgRaw.devDependencies ?? {}),
       };
       if (deps["@hapi/lab"] || deps.lab) {
-        console.log("Lab Test Explorer is now active");
+        console.log("hapi/lab Test Runner is now active");
 
         testController = new LabTestController();
         context.subscriptions.push({
@@ -85,7 +85,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
         const activationCommand = getConfig().activationCommand;
         if (activationCommand) {
-          outputChannel = vscode.window.createOutputChannel("Lab Test Explorer");
+          outputChannel = vscode.window.createOutputChannel("hapi/lab Test Runner");
           context.subscriptions.push(outputChannel);
           outputChannel.show(true);
 
@@ -125,7 +125,7 @@ export function activate(context: vscode.ExtensionContext): void {
 }
 
 /**
- * Deactivates the Lab Test Explorer extension.
+ * Deactivates the hapi/lab Test Runner extension.
  *
  * Called by VSCode when the extension is being deactivated. Cleans up resources
  * by disposing of the test controller and releasing any held references.
