@@ -76,6 +76,17 @@ function shouldUseNpmTest(
   return getPackageScript(cwd, "test") !== undefined;
 }
 
+/**
+ * Escapes a string for safe use in a shell command.
+ * Wraps the string in single quotes and escapes any single quotes within.
+ *
+ * @param arg - The argument to escape
+ * @returns The escaped argument safe for shell execution
+ */
+function escapeShellArg(arg: string): string {
+  return `'${arg.replace(/'/g, "'\\''")}'`;
+}
+
 export function spawnNpmRun(cwd: string, script: string) {
   const shell = vscode.env.shell || "/bin/zsh";
   const env = { ...process.env, FORCE_COLOR: "1" };
@@ -223,10 +234,36 @@ export async function runLabTest(
     let output = "";
     let errorOutput = "";
 
-    const proc = spawn(process.execPath, [command, ...args], {
-      cwd,
-      env: { ...process.env, FORCE_COLOR: "1", ELECTRON_RUN_AS_NODE: "1" },
-    });
+    let proc;
+    if (useNpmTest) {
+      // Run npm through a shell to properly handle the command
+      const shell = vscode.env.shell || "/bin/zsh";
+      // Escape arguments for safe shell execution
+      const escapedArgs = args.map(escapeShellArg).join(" ");
+      const cmdString = `${command} ${escapedArgs}`;
+      const shellArgs = shell.endsWith("zsh") ? ["-lic", cmdString] : ["-lc", cmdString];
+      proc = spawn(shell, shellArgs, {
+        cwd,
+        env: { ...process.env, FORCE_COLOR: "1" },
+      });
+    } else {
+      // Run lab directly through Node.js
+      // If command is a path to a JS file, use process.execPath
+      // If command is "npx lab", split and run npx directly
+      if (command.startsWith("npx ")) {
+        const [npxCmd, ...npxArgs] = command.split(" ");
+        proc = spawn(npxCmd, [...npxArgs, ...args], {
+          cwd,
+          env: { ...process.env, FORCE_COLOR: "1" },
+        });
+      } else {
+        // Direct path to lab binary
+        proc = spawn(process.execPath, [command, ...args], {
+          cwd,
+          env: { ...process.env, FORCE_COLOR: "1", ELECTRON_RUN_AS_NODE: "1" },
+        });
+      }
+    }
 
     token.onCancellationRequested(() => {
       proc.kill("SIGTERM");

@@ -65,7 +65,7 @@
             "always",
             "never"
           ],
-          "default": "auto",
+          "default": "never",
           "description": "How to run tests. 'auto' (default): use 'npm test' if a test script exists, otherwise call lab directly. 'always': always use 'npm test'. 'never': always call lab directly."
         }
       }
