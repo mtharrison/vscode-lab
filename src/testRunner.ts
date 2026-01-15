@@ -23,12 +23,6 @@ import { buildTestPattern } from "./testParser";
 const LAB_START_PATTERN = /[✔✓✖✗]|\d+\)|^\s+\d+\)|test.*\(\d+\s*ms\)/;
 
 /**
- * Pattern to detect end of lab test output (summary line).
- * Matches: "5 tests complete", "3 tests passed", "1 test failed", etc.
- */
-const LAB_END_PATTERN = /\d+\s+tests?\s+(complete|passed|failed)/i;
-
-/**
  * Pattern to parse individual test results from lab output.
  * Captures: [1] pass/fail symbol, [2] test name, [3] duration in ms
  * Matches: "✓ 1) test name (123 ms and 2 assertions)"
@@ -110,13 +104,13 @@ export async function runLabTest(
     let output = "";
     let errorOutput = "";
 
-    // State for suppressing prefix/suffix output
+    // State for suppressing prefix output
     let labOutputStarted = !config.suppressPrefixOutput;
-    let labOutputEnded = false;
 
     // State for real-time test result tracking
     const descendantMap = new Map<string, vscode.TestItem>();
     const markedDescendants = new Set<vscode.TestItem>();
+    const failedDescendants = new Map<vscode.TestItem, number>(); // TestItem -> duration
     let lineBuffer = "";
 
     if (descendants) {
@@ -135,14 +129,8 @@ export async function runLabTest(
         labOutputStarted = true;
       }
 
-      // Check if lab output has ended
-      if (labOutputStarted && !labOutputEnded && LAB_END_PATTERN.test(text)) {
-        // Show this line (it's the summary) then mark as ended
-        labOutputEnded = true;
-        return true;
-      }
-
-      return labOutputStarted && !labOutputEnded;
+      // Once lab output has started, show everything (including failure details after summary)
+      return labOutputStarted;
     };
 
     let proc;
@@ -208,16 +196,13 @@ export async function runLabTest(
             const [, symbol, testName, durationStr] = match;
             const descendant = descendantMap.get(testName.trim());
             if (descendant && !markedDescendants.has(descendant)) {
-              markedDescendants.add(descendant);
               const duration = parseInt(durationStr, 10);
               if (symbol === "✓" || symbol === "✔") {
+                markedDescendants.add(descendant);
                 run.passed(descendant, duration);
               } else {
-                run.failed(
-                  descendant,
-                  new vscode.TestMessage("Test failed"),
-                  duration
-                );
+                // Store failed tests to mark in close handler with actual error message
+                failedDescendants.set(descendant, duration);
               }
             }
           }
@@ -250,6 +235,11 @@ export async function runLabTest(
         const message =
           parseErrorMessage(output + errorOutput) || "Test failed";
         run.failed(testItem, new vscode.TestMessage(message), duration);
+        // Mark failed descendants detected in real-time with actual error message
+        for (const [descendant, descendantDuration] of failedDescendants) {
+          markedDescendants.add(descendant);
+          run.failed(descendant, new vscode.TestMessage(message), descendantDuration);
+        }
         // Mark remaining descendants as failed
         if (descendants) {
           for (const descendant of descendants) {
@@ -272,21 +262,42 @@ export async function runLabTest(
   });
 }
 
+/**
+ * Pattern to detect lab's numbered failure output.
+ * Matches: "  1) Test name:" at the start of failure details
+ */
+const FAILURE_START_PATTERN = /^\s*\d+\)\s+.+:/;
+
 function parseErrorMessage(output: string): string | undefined {
-  const lines = output.split("\n");
+  // Strip ANSI escape codes for cleaner parsing
+  const cleanOutput = output.replace(ANSI_ESCAPE_PATTERN, "");
+  const lines = cleanOutput.split("\n");
   const errorLines: string[] = [];
   let inError = false;
 
   for (const line of lines) {
-    if (line.includes("Error:") || line.includes("AssertionError")) {
+    // Start capturing on lab's numbered failure format or error keywords
+    if (
+      !inError &&
+      (FAILURE_START_PATTERN.test(line) ||
+        line.includes("Error:") ||
+        line.includes("AssertionError"))
+    ) {
       inError = true;
     }
+
     if (inError) {
       errorLines.push(line);
-      if (errorLines.length >= 10) {
+      // Capture up to 20 lines for more context
+      if (errorLines.length >= 20) {
         break;
       }
     }
+  }
+
+  // Trim trailing empty lines
+  while (errorLines.length > 0 && errorLines[errorLines.length - 1].trim() === "") {
+    errorLines.pop();
   }
 
   return errorLines.length > 0 ? errorLines.join("\n") : undefined;
