@@ -12,8 +12,6 @@ Run and debug [hapijs/lab](https://hapi.dev/module/lab/) tests directly from VS 
 - **Run All Tests**: Run entire test files or all tests at once from the Test Explorer panel
 - **Live Results**: See test pass/fail status with colored ANSI output directly in the Test Results panel
 - **Real-time Discovery**: Tests are automatically discovered and updated as you edit your files
-- **Pretest Script Support**: Optionally run your `pretest` npm script before executing tests
-- **Flexible Test Execution**: Configure whether to use `npm test` or call `lab` directly via npx
 - **Source Map Support**: Debug your tests with full source map support for easy debugging
 
 ## Quick Start
@@ -58,17 +56,13 @@ Configure the extension through VS Code settings (`Cmd+,` or `Ctrl+,`):
 | `labTestExplorer.testMatch` | `**/{test,tests,__tests__}/**/*.{js,ts}` | Glob pattern to match test files |
 | `labTestExplorer.labPath` | `""` | Path to lab executable (leave empty to use npx) |
 | `labTestExplorer.timeout` | `30000` | Test timeout in milliseconds |
-| `labTestExplorer.runPretest` | `true` | Run the pretest script from package.json before executing tests |
-| `labTestExplorer.useNpmTest` | `"auto"` | How to run tests: `auto` uses `npm test` if a test script exists, `always` always uses `npm test`, `never` calls lab directly |
 
 ### Example Settings
 
 ```json
 {
   "labTestExplorer.testMatch": "**/test/**/*.test.ts",
-  "labTestExplorer.timeout": 60000,
-  "labTestExplorer.runPretest": false,
-  "labTestExplorer.useNpmTest": "never"
+  "labTestExplorer.timeout": 60000
 }
 ```
 

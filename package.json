@@ -52,21 +52,6 @@
           "type": "number",
           "default": 30000,
           "description": "Test timeout in milliseconds"
-        },
-        "labTestExplorer.runPretest": {
-          "type": "boolean",
-          "default": true,
-          "description": "Run the pretest script from package.json before executing tests"
-        },
-        "labTestExplorer.useNpmTest": {
-          "type": "string",
-          "enum": [
-            "auto",
-            "always",
-            "never"
-          ],
-          "default": "never",
-          "description": "How to run tests. 'auto' (default): use 'npm test' if a test script exists, otherwise call lab directly. 'always': always use 'npm test'. 'never': always call lab directly."
         }
       }
     }
