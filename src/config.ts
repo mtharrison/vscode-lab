@@ -21,6 +21,7 @@ export interface LabTestConfig {
   labPath: string;
   timeout: number;
   activationCommand: string;
+  labArgs: string;
 }
 
 /**
@@ -42,6 +43,10 @@ export function getConfig(): LabTestConfig {
     labPath: config.get<string>("labPath", ""),
     timeout: config.get<number>("timeout", 30000),
     activationCommand: config.get<string>("activationCommand", ""),
+    labArgs: config.get<string>(
+      "labArgs",
+      "--no-lint --no-coverage --no-leaks -v -r console"
+    ),
   };
 }
 

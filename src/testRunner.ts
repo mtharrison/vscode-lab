@@ -63,12 +63,11 @@ export async function runLabTest(
   const pattern = buildTestPattern(testName);
 
   const command = getLabCommand(config);
+  const labArgs = config.labArgs.split(/\s+/).filter((arg) => arg.length > 0);
   const args = [
     "-m",
     config.timeout.toString(),
-    "-v",
-    "-r",
-    "console",
+    ...labArgs,
     "-g",
     pattern,
     testFilePath,
