@@ -17,7 +17,7 @@ describe('testParser', () => {
       expect(tests[0].type).toBe('it');
     });
 
-    it('should parse describe() blocks', () => {
+    it('should parse describe() blocks with nested children', () => {
       const code = `
         describe('MyModule', () => {
           it('should work', () => {});
@@ -26,18 +26,19 @@ describe('testParser', () => {
 
       const tests = parseTestFile(code);
 
-      expect(tests).toHaveLength(2);
-      const names = tests.map((t) => t.name);
-      expect(names).toContain('MyModule');
-      expect(names).toContain('should work');
+      // Only the describe at top level
+      expect(tests).toHaveLength(1);
+      expect(tests[0].name).toBe('MyModule');
+      expect(tests[0].type).toBe('describe');
 
-      const describeTest = tests.find((t) => t.name === 'MyModule');
-      const itTest = tests.find((t) => t.name === 'should work');
-      expect(describeTest?.type).toBe('describe');
-      expect(itTest?.type).toBe('it');
+      // The it() is nested inside
+      expect(tests[0].children).toHaveLength(1);
+      expect(tests[0].children[0].name).toBe('should work');
+      expect(tests[0].children[0].type).toBe('it');
+      expect(tests[0].children[0].children).toHaveLength(0);
     });
 
-    it('should parse Lab-specific experiment() blocks', () => {
+    it('should parse Lab-specific experiment() blocks with nested children', () => {
       const code = `
         experiment('My Experiment', () => {
           test('should pass', () => {});
@@ -46,18 +47,18 @@ describe('testParser', () => {
 
       const tests = parseTestFile(code);
 
-      expect(tests).toHaveLength(2);
-      const names = tests.map((t) => t.name);
-      expect(names).toContain('My Experiment');
-      expect(names).toContain('should pass');
+      // Only the experiment at top level
+      expect(tests).toHaveLength(1);
+      expect(tests[0].name).toBe('My Experiment');
+      expect(tests[0].type).toBe('experiment');
 
-      const experimentTest = tests.find((t) => t.name === 'My Experiment');
-      const testTest = tests.find((t) => t.name === 'should pass');
-      expect(experimentTest?.type).toBe('experiment');
-      expect(testTest?.type).toBe('test');
+      // The test() is nested inside
+      expect(tests[0].children).toHaveLength(1);
+      expect(tests[0].children[0].name).toBe('should pass');
+      expect(tests[0].children[0].type).toBe('test');
     });
 
-    it('should handle multiple tests', () => {
+    it('should handle multiple nested tests', () => {
       const code = `
         describe('Calculator', () => {
           it('should add numbers', () => {});
@@ -68,10 +69,14 @@ describe('testParser', () => {
 
       const tests = parseTestFile(code);
 
-      expect(tests).toHaveLength(4);
-      const names = tests.map((t) => t.name).sort();
-      expect(names).toEqual([
-        'Calculator',
+      // Only the describe at top level
+      expect(tests).toHaveLength(1);
+      expect(tests[0].name).toBe('Calculator');
+
+      // All it() tests are nested
+      expect(tests[0].children).toHaveLength(3);
+      const childNames = tests[0].children.map((t) => t.name).sort();
+      expect(childNames).toEqual([
         'should add numbers',
         'should multiply numbers',
         'should subtract numbers',
@@ -158,10 +163,10 @@ describe('testParser', () => {
 
       const tests = parseTestFile(code);
 
-      expect(tests).toHaveLength(2);
-      const names = tests.map((t) => t.name);
-      expect(names).toContain('User creation');
-      expect(names).toContain('should create a user with valid data');
+      expect(tests).toHaveLength(1);
+      expect(tests[0].name).toBe('User creation');
+      expect(tests[0].children).toHaveLength(1);
+      expect(tests[0].children[0].name).toBe('should create a user with valid data');
     });
 
     it('should parse TypeScript files with generics', () => {
@@ -197,8 +202,10 @@ describe('testParser', () => {
 
       const tests = parseTestFile(code);
 
-      expect(tests).toHaveLength(2);
-      expect(tests.map((t) => t.name)).toContain('should handle success result');
+      expect(tests).toHaveLength(1);
+      expect(tests[0].name).toBe('Result handling');
+      expect(tests[0].children).toHaveLength(1);
+      expect(tests[0].children[0].name).toBe('should handle success result');
     });
 
     it('should parse TypeScript files with enums', () => {
@@ -245,8 +252,10 @@ describe('testParser', () => {
 
       const tests = parseTestFile(code);
 
-      expect(tests).toHaveLength(2);
-      expect(tests.map((t) => t.name)).toContain('should add numbers');
+      expect(tests).toHaveLength(1);
+      expect(tests[0].name).toBe('Calculator');
+      expect(tests[0].children).toHaveLength(1);
+      expect(tests[0].children[0].name).toBe('should add numbers');
     });
 
     it('should parse TypeScript files with as assertions', () => {
@@ -261,6 +270,56 @@ describe('testParser', () => {
 
       expect(tests).toHaveLength(1);
       expect(tests[0].name).toBe('should handle type assertions');
+    });
+
+    it('should build deeply nested hierarchy for describe/experiment blocks', () => {
+      const code = `
+        describe('Outer', () => {
+          describe('Inner', () => {
+            it('test 1', () => {});
+          });
+          it('test 2', () => {});
+        });
+      `;
+      const tests = parseTestFile(code);
+
+      expect(tests).toHaveLength(1);
+      expect(tests[0].name).toBe('Outer');
+      expect(tests[0].type).toBe('describe');
+      expect(tests[0].children).toHaveLength(2);
+
+      // First child is nested describe
+      expect(tests[0].children[0].name).toBe('Inner');
+      expect(tests[0].children[0].type).toBe('describe');
+      expect(tests[0].children[0].children).toHaveLength(1);
+      expect(tests[0].children[0].children[0].name).toBe('test 1');
+
+      // Second child is a direct it()
+      expect(tests[0].children[1].name).toBe('test 2');
+      expect(tests[0].children[1].type).toBe('it');
+      expect(tests[0].children[1].children).toHaveLength(0);
+    });
+
+    it('should handle mixed top-level tests and describe blocks', () => {
+      const code = `
+        it('standalone test', () => {});
+        describe('Group', () => {
+          it('grouped test', () => {});
+        });
+        it('another standalone', () => {});
+      `;
+      const tests = parseTestFile(code);
+
+      expect(tests).toHaveLength(3);
+      expect(tests[0].name).toBe('standalone test');
+      expect(tests[0].children).toHaveLength(0);
+
+      expect(tests[1].name).toBe('Group');
+      expect(tests[1].children).toHaveLength(1);
+      expect(tests[1].children[0].name).toBe('grouped test');
+
+      expect(tests[2].name).toBe('another standalone');
+      expect(tests[2].children).toHaveLength(0);
     });
   });
 

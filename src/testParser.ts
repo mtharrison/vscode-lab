@@ -7,7 +7,7 @@
  *
  * @module testParser
  */
-import { parse, simpleTraverse, AST_NODE_TYPES, TSESTree } from '@typescript-eslint/typescript-estree';
+import { parse, AST_NODE_TYPES, TSESTree } from '@typescript-eslint/typescript-estree';
 import * as vscode from 'vscode';
 
 /**
@@ -28,20 +28,21 @@ export interface ParsedTest {
 /** Set of recognized test function names from @hapi/lab */
 const TEST_FUNCTIONS = new Set(['describe', 'it', 'experiment', 'test']);
 
+/** Set of container test functions that can have nested tests */
+const CONTAINER_FUNCTIONS = new Set(['describe', 'experiment']);
+
 /**
  * Parses a JavaScript or TypeScript source file to extract test definitions.
  *
- * Uses the TypeScript ESLint parser to build an AST, then traverses it to find
- * calls to test functions (`test()`, `it()`, `describe()`, `experiment()`).
- * Extracts the test name from the first argument (string literal or template literal)
- * and records the source location for gutter icon placement.
+ * Uses the TypeScript ESLint parser to build an AST, then recursively traverses
+ * it to find calls to test functions (`test()`, `it()`, `describe()`, `experiment()`).
+ * Builds a hierarchical structure where describe/experiment blocks contain their
+ * nested tests as children.
  *
  * @param content - The source code content to parse
- * @returns Array of parsed test objects, empty array if parsing fails or no tests found
+ * @returns Array of parsed test objects with nested children, empty array if parsing fails
  */
 export function parseTestFile(content: string): ParsedTest[] {
-  const tests: ParsedTest[] = [];
-
   try {
     const ast = parse(content, {
       loc: true,
@@ -49,50 +50,98 @@ export function parseTestFile(content: string): ParsedTest[] {
       jsx: true,
     });
 
-    simpleTraverse(ast, {
-      enter(node) {
-        if (node.type === AST_NODE_TYPES.CallExpression) {
-          const callNode = node;
-          if (
-            callNode.callee.type === AST_NODE_TYPES.Identifier &&
-            TEST_FUNCTIONS.has(callNode.callee.name) &&
-            callNode.arguments.length >= 2 &&
-            (callNode.arguments[0].type === AST_NODE_TYPES.Literal || callNode.arguments[0].type === AST_NODE_TYPES.TemplateLiteral) &&
-            callNode.loc
-          ) {
-            const firstArg = callNode.arguments[0];
-            let testName = 'unnamed test';
-
-            if (firstArg.type === AST_NODE_TYPES.Literal && typeof (firstArg as TSESTree.Literal).value === 'string') {
-              testName = (firstArg as TSESTree.Literal).value as string;
-            } else if (firstArg.type === AST_NODE_TYPES.TemplateLiteral && (firstArg).quasis.length > 0) {
-              testName = (firstArg).quasis.map((q) => q.value.cooked || q.value.raw).join('');
-            }
-
-            const range = new vscode.Range(
-              callNode.loc.start.line - 1,
-              callNode.loc.start.column,
-              callNode.loc.end.line - 1,
-              callNode.loc.end.column
-            );
-
-            const testType = callNode.callee.name as ParsedTest['type'];
-
-            tests.push({
-              name: testName,
-              type: testType,
-              range,
-              children: [],
-            });
-          }
-        }
-      },
-    });
+    return extractTestsFromStatements(ast.body);
   } catch {
     // Failed to parse - return empty tests array
+    return [];
+  }
+}
+
+/**
+ * Recursively extracts test definitions from an array of AST statements.
+ * Handles nested describe/experiment blocks by recursing into their callback bodies.
+ */
+function extractTestsFromStatements(statements: TSESTree.Statement[]): ParsedTest[] {
+  const tests: ParsedTest[] = [];
+
+  for (const statement of statements) {
+    // Look for expression statements containing test function calls
+    if (statement.type === AST_NODE_TYPES.ExpressionStatement) {
+      const testInfo = extractTestFromExpression(statement.expression);
+      if (testInfo) {
+        tests.push(testInfo);
+      }
+    }
   }
 
   return tests;
+}
+
+/**
+ * Extracts test info from an expression node if it's a test function call.
+ * For describe/experiment blocks, recursively extracts children from the callback.
+ */
+function extractTestFromExpression(node: TSESTree.Expression): ParsedTest | null {
+  if (node.type !== AST_NODE_TYPES.CallExpression) {
+    return null;
+  }
+
+  const callNode = node;
+
+  // Check if this is a test function call
+  if (
+    callNode.callee.type !== AST_NODE_TYPES.Identifier ||
+    !TEST_FUNCTIONS.has(callNode.callee.name) ||
+    callNode.arguments.length < 2 ||
+    !callNode.loc
+  ) {
+    return null;
+  }
+
+  const firstArg = callNode.arguments[0];
+  if (
+    firstArg.type !== AST_NODE_TYPES.Literal &&
+    firstArg.type !== AST_NODE_TYPES.TemplateLiteral
+  ) {
+    return null;
+  }
+
+  // Extract test name
+  let testName = 'unnamed test';
+  if (firstArg.type === AST_NODE_TYPES.Literal && typeof (firstArg as TSESTree.Literal).value === 'string') {
+    testName = (firstArg as TSESTree.Literal).value as string;
+  } else if (firstArg.type === AST_NODE_TYPES.TemplateLiteral && firstArg.quasis.length > 0) {
+    testName = firstArg.quasis.map((q) => q.value.cooked || q.value.raw).join('');
+  }
+
+  const range = new vscode.Range(
+    callNode.loc.start.line - 1,
+    callNode.loc.start.column,
+    callNode.loc.end.line - 1,
+    callNode.loc.end.column
+  );
+
+  const testType = callNode.callee.name as ParsedTest['type'];
+  let children: ParsedTest[] = [];
+
+  // For describe/experiment blocks, extract children from the callback
+  if (CONTAINER_FUNCTIONS.has(callNode.callee.name)) {
+    const callback = callNode.arguments[1];
+    if (
+      (callback.type === AST_NODE_TYPES.ArrowFunctionExpression ||
+       callback.type === AST_NODE_TYPES.FunctionExpression) &&
+      callback.body.type === AST_NODE_TYPES.BlockStatement
+    ) {
+      children = extractTestsFromStatements(callback.body.body);
+    }
+  }
+
+  return {
+    name: testName,
+    type: testType,
+    range,
+    children,
+  };
 }
 
 /**

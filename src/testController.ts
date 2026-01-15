@@ -189,11 +189,9 @@ export class LabTestController {
     const fileId = uri.toString();
     const existingItem = this.controller.items.get(fileId);
 
-    // Clear existing children
+    // Clear existing children recursively
     if (existingItem) {
-      existingItem.children.forEach((child) => {
-        existingItem.children.delete(child.id);
-      });
+      this.clearChildrenRecursive(existingItem);
     }
 
     const fileName = path.basename(uri.fsPath);
@@ -204,8 +202,30 @@ export class LabTestController {
       this.controller.items.add(fileItem);
     }
 
+    // Recursively add tests with hierarchy
+    this.addTestItems(fileItem, tests, uri);
+  }
+
+  /**
+   * Recursively clears all children from a test item.
+   */
+  private clearChildrenRecursive(item: vscode.TestItem): void {
+    item.children.forEach((child) => {
+      this.clearChildrenRecursive(child);
+      item.children.delete(child.id);
+    });
+  }
+
+  /**
+   * Recursively adds test items to a parent, creating nested hierarchy for describe/experiment blocks.
+   */
+  private addTestItems(
+    parent: vscode.TestItem,
+    tests: ParsedTest[],
+    uri: vscode.Uri
+  ): void {
     for (const test of tests) {
-      const testId = `${fileId}#${test.name}`;
+      const testId = `${parent.id}#${test.name}`;
       const testItem = this.controller.createTestItem(testId, test.name, uri);
 
       // Set the range - this is what makes the gutter icons appear
@@ -213,7 +233,12 @@ export class LabTestController {
       testItem.canResolveChildren = false;
 
       this.testItemMap.set(testItem, test);
-      fileItem.children.add(testItem);
+      parent.children.add(testItem);
+
+      // Recursively add children for describe/experiment blocks
+      if (test.children.length > 0) {
+        this.addTestItems(testItem, test.children, uri);
+      }
     }
   }
 
