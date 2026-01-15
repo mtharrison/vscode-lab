@@ -29,6 +29,20 @@ const LAB_START_PATTERN = /[✔✓✖✗]|\d+\)|^\s+\d+\)|test.*\(\d+\s*ms\)/;
 const LAB_END_PATTERN = /\d+\s+tests?\s+(complete|passed|failed)/i;
 
 /**
+ * Pattern to parse individual test results from lab output.
+ * Captures: [1] pass/fail symbol, [2] test name, [3] duration in ms
+ * Matches: "✓ 1) test name (123 ms and 2 assertions)"
+ */
+const TEST_RESULT_PATTERN = /([✓✔✖✗])\s*\d+\)\s*(.+?)\s*\((\d+)\s*ms/;
+
+/**
+ * Pattern to strip ANSI escape codes from output.
+ * Lab runs with FORCE_COLOR=1 so output contains color codes.
+ */
+// eslint-disable-next-line no-control-regex
+const ANSI_ESCAPE_PATTERN = /\u001b\[[0-9;]*m/g;
+
+/**
  * Result of a single test execution.
  *
  * @property passed - Whether the test passed successfully
@@ -43,9 +57,8 @@ export interface TestResult {
   output?: string;
 }
 
-
 /**
- * Executes a single @hapi/lab test case.
+ * Executes a single @hapi/lab test case or describe block.
  *
  * Spawns the lab binary (or a custom lab executable if configured) with the appropriate
  * arguments to run only the specified test. Uses the `-g` (grep) flag with an
@@ -57,11 +70,13 @@ export interface TestResult {
  * @param testItem - The VSCode TestItem representing the test to run
  * @param run - The active test run for reporting results
  * @param token - Cancellation token to support stopping the test mid-execution
+ * @param descendants - Optional array of descendant items to mark with the same result
  */
 export async function runLabTest(
   testItem: vscode.TestItem,
   run: vscode.TestRun,
-  token: vscode.CancellationToken
+  token: vscode.CancellationToken,
+  descendants?: vscode.TestItem[]
 ): Promise<void> {
   const config = getConfig();
 
@@ -98,6 +113,17 @@ export async function runLabTest(
     // State for suppressing prefix/suffix output
     let labOutputStarted = !config.suppressPrefixOutput;
     let labOutputEnded = false;
+
+    // State for real-time test result tracking
+    const descendantMap = new Map<string, vscode.TestItem>();
+    const markedDescendants = new Set<vscode.TestItem>();
+    let lineBuffer = "";
+
+    if (descendants) {
+      for (const d of descendants) {
+        descendantMap.set(d.label, d);
+      }
+    }
 
     const shouldShowOutput = (text: string): boolean => {
       if (!config.suppressPrefixOutput) {
@@ -167,6 +193,36 @@ export async function runLabTest(
       if (shouldShowOutput(text)) {
         run.appendOutput(text.replace(/\n/g, "\r\n"), undefined, testItem);
       }
+
+      // Parse for individual test results in real-time
+      if (descendants && descendants.length > 0) {
+        lineBuffer += text;
+        const lines = lineBuffer.split("\n");
+        // Keep last incomplete line in buffer
+        lineBuffer = lines.pop() || "";
+
+        for (const line of lines) {
+          const cleanLine = line.replace(ANSI_ESCAPE_PATTERN, "");
+          const match = TEST_RESULT_PATTERN.exec(cleanLine);
+          if (match) {
+            const [, symbol, testName, durationStr] = match;
+            const descendant = descendantMap.get(testName.trim());
+            if (descendant && !markedDescendants.has(descendant)) {
+              markedDescendants.add(descendant);
+              const duration = parseInt(durationStr, 10);
+              if (symbol === "✓" || symbol === "✔") {
+                run.passed(descendant, duration);
+              } else {
+                run.failed(
+                  descendant,
+                  new vscode.TestMessage("Test failed"),
+                  duration
+                );
+              }
+            }
+          }
+        }
+      }
     });
 
     proc.stderr.on("data", (data: Buffer) => {
@@ -182,10 +238,26 @@ export async function runLabTest(
 
       if (code === 0) {
         run.passed(testItem, duration);
+        // Mark any descendants not already marked in real-time
+        if (descendants) {
+          for (const descendant of descendants) {
+            if (!markedDescendants.has(descendant)) {
+              run.passed(descendant, duration);
+            }
+          }
+        }
       } else {
         const message =
           parseErrorMessage(output + errorOutput) || "Test failed";
         run.failed(testItem, new vscode.TestMessage(message), duration);
+        // Mark remaining descendants as failed
+        if (descendants) {
+          for (const descendant of descendants) {
+            if (!markedDescendants.has(descendant)) {
+              run.failed(descendant, new vscode.TestMessage(message), duration);
+            }
+          }
+        }
       }
       resolve();
     });
@@ -218,28 +290,4 @@ function parseErrorMessage(output: string): string | undefined {
   }
 
   return errorLines.length > 0 ? errorLines.join("\n") : undefined;
-}
-
-/**
- * Executes multiple tests sequentially.
- *
- * Iterates through all provided test items and runs each one in order.
- * Respects cancellation requests by skipping remaining tests when cancelled.
- *
- * @param testItems - Array of VSCode TestItems to execute
- * @param run - The active test run for reporting results
- * @param token - Cancellation token to support stopping test execution
- */
-export async function runAllTests(
-  testItems: vscode.TestItem[],
-  run: vscode.TestRun,
-  token: vscode.CancellationToken
-): Promise<void> {
-  for (const item of testItems) {
-    if (token.isCancellationRequested) {
-      run.skipped(item);
-      continue;
-    }
-    await runLabTest(item, run, token);
-  }
 }

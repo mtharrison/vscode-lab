@@ -85,7 +85,9 @@ export function activate(context: vscode.ExtensionContext): void {
 
         const activationCommand = getConfig().activationCommand;
         if (activationCommand) {
-          outputChannel = vscode.window.createOutputChannel("hapi/lab Test Runner");
+          outputChannel = vscode.window.createOutputChannel(
+            "hapi/lab Test Runner"
+          );
           context.subscriptions.push(outputChannel);
           outputChannel.show(true);
 
@@ -112,7 +114,9 @@ export function activate(context: vscode.ExtensionContext): void {
           });
 
           proc.on("error", (err) => {
-            outputChannel?.appendLine(`\nActivation command failed: ${err.message}`);
+            outputChannel?.appendLine(
+              `\nActivation command failed: ${err.message}`
+            );
           });
 
           proc.on("close", (code) => {

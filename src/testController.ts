@@ -7,11 +7,11 @@
  *
  * @module testController
  */
-import * as vscode from 'vscode';
-import * as path from 'path';
-import { getConfig } from './config';
-import { parseTestFile, ParsedTest } from './testParser';
-import { runAllTests } from './testRunner';
+import * as path from "path";
+import * as vscode from "vscode";
+import { getConfig } from "./config";
+import { ParsedTest, parseTestFile } from "./testParser";
+import { runLabTest } from "./testRunner";
 
 /**
  * Controller for integrating @hapi/lab tests with VSCode's Test Explorer.
@@ -31,8 +31,8 @@ export class LabTestController {
 
   constructor() {
     this.controller = vscode.tests.createTestController(
-      'labTestController',
-      'Lab Tests'
+      "labTestController",
+      "Lab Tests"
     );
 
     this.controller.resolveHandler = async (item) => {
@@ -48,7 +48,7 @@ export class LabTestController {
     };
 
     const runProfile = this.controller.createRunProfile(
-      'Run',
+      "Run",
       vscode.TestRunProfileKind.Run,
       async (request, token) => {
         await this.runTests(request, token);
@@ -89,7 +89,7 @@ export class LabTestController {
   private setupDocumentWatchers(): void {
     // Watch for document opens
     const openWatcher = vscode.workspace.onDidOpenTextDocument((document) => {
-      if (this.isTestFile(document.uri) && document.uri.scheme === 'file') {
+      if (this.isTestFile(document.uri) && document.uri.scheme === "file") {
         this.parseTestsInDocument(document);
       }
     });
@@ -97,7 +97,7 @@ export class LabTestController {
 
     // Watch for document changes
     const changeWatcher = vscode.workspace.onDidChangeTextDocument((e) => {
-      if (this.isTestFile(e.document.uri) && e.document.uri.scheme === 'file') {
+      if (this.isTestFile(e.document.uri) && e.document.uri.scheme === "file") {
         this.parseTestsInDocument(e.document);
       }
     });
@@ -105,7 +105,7 @@ export class LabTestController {
 
     // Watch for document saves (re-parse to ensure consistency)
     const saveWatcher = vscode.workspace.onDidSaveTextDocument((document) => {
-      if (this.isTestFile(document.uri) && document.uri.scheme === 'file') {
+      if (this.isTestFile(document.uri) && document.uri.scheme === "file") {
         this.parseTestsInDocument(document);
       }
     });
@@ -115,14 +115,14 @@ export class LabTestController {
   private parseOpenDocuments(): void {
     // Parse all currently open text documents that are test files
     for (const document of vscode.workspace.textDocuments) {
-      if (this.isTestFile(document.uri) && document.uri.scheme === 'file') {
+      if (this.isTestFile(document.uri) && document.uri.scheme === "file") {
         this.parseTestsInDocument(document);
       }
     }
   }
 
   private isTestFile(uri: vscode.Uri): boolean {
-    if (uri.scheme !== 'file') {
+    if (uri.scheme !== "file") {
       return false;
     }
 
@@ -131,13 +131,15 @@ export class LabTestController {
 
     // Convert glob pattern to regex
     const pattern = new RegExp(
-      '^' + config.testMatch
-        .replace(/\./g, '\\.')
-        .replace(/\*\*/g, '<<GLOBSTAR>>')
-        .replace(/\*/g, '[^/]*')
-        .replace(/<<GLOBSTAR>>/g, '.*')
-        .replace(/\{([^}]+)\}/g, '($1)')
-        .replace(/,/g, '|') + '$'
+      "^" +
+        config.testMatch
+          .replace(/\./g, "\\.")
+          .replace(/\*\*/g, "<<GLOBSTAR>>")
+          .replace(/\*/g, "[^/]*")
+          .replace(/<<GLOBSTAR>>/g, ".*")
+          .replace(/\{([^}]+)\}/g, "($1)")
+          .replace(/,/g, "|") +
+        "$"
     );
 
     return pattern.test(relativePath);
@@ -158,7 +160,7 @@ export class LabTestController {
 
     const testFiles = await vscode.workspace.findFiles(
       config.testMatch,
-      '**/node_modules/**'
+      "**/node_modules/**"
     );
 
     for (const uri of testFiles) {
@@ -195,7 +197,8 @@ export class LabTestController {
     }
 
     const fileName = path.basename(uri.fsPath);
-    const fileItem = existingItem || this.controller.createTestItem(fileId, fileName, uri);
+    const fileItem =
+      existingItem || this.controller.createTestItem(fileId, fileName, uri);
     fileItem.canResolveChildren = false;
 
     if (!existingItem) {
@@ -252,33 +255,112 @@ export class LabTestController {
     token: vscode.CancellationToken
   ): Promise<void> {
     const run = this.controller.createTestRun(request);
-    const testItems: vscode.TestItem[] = [];
 
+    // Get the directly selected items (or all top-level items if none selected)
+    const selectedItems: vscode.TestItem[] = [];
     if (request.include) {
       for (const item of request.include) {
-        this.collectTestItems(item, testItems);
+        selectedItems.push(item);
       }
     } else {
       this.controller.items.forEach((item) => {
-        this.collectTestItems(item, testItems);
+        selectedItems.push(item);
       });
     }
 
-    if (request.exclude) {
-      const excludeIds = new Set(request.exclude.map((e) => e.id));
-      const filteredItems = testItems.filter((item) => !excludeIds.has(item.id));
-      testItems.length = 0;
-      testItems.push(...filteredItems);
+    // Build exclude set
+    const excludeIds = new Set(request.exclude?.map((e) => e.id) || []);
+
+    // Process each selected item
+    for (const item of selectedItems) {
+      if (token.isCancellationRequested) {
+        break;
+      }
+
+      if (excludeIds.has(item.id)) {
+        continue;
+      }
+
+      await this.runTestItem(item, run, token, excludeIds);
     }
 
-    // Only run leaf tests (actual test cases, not files/suites)
-    const leafTests = testItems.filter((item) => item.children.size === 0);
-
-    await runAllTests(leafTests, run, token);
     run.end();
   }
 
-  private collectTestItems(item: vscode.TestItem, collected: vscode.TestItem[]): void {
+  /**
+   * Runs a single test item. For describe/experiment blocks (items with children),
+   * runs lab once with the describe pattern. For leaf tests, runs the individual test.
+   */
+  private async runTestItem(
+    item: vscode.TestItem,
+    run: vscode.TestRun,
+    token: vscode.CancellationToken,
+    excludeIds: Set<string>
+  ): Promise<void> {
+    if (token.isCancellationRequested) {
+      run.skipped(item);
+      return;
+    }
+
+    // Check if this is a file item (no parent test, just contains tests)
+    const isFileItem = !item.id.includes("#");
+
+    if (isFileItem) {
+      // For file items, run each child
+      for (const [, child] of item.children) {
+        if (!excludeIds.has(child.id)) {
+          await this.runTestItem(child, run, token, excludeIds);
+        }
+      }
+    } else if (item.children.size > 0) {
+      // This is a describe/experiment block - run it as a single lab invocation
+      await this.runDescribeBlock(item, run, token);
+    } else {
+      // This is a leaf test - run it individually
+      await runLabTest(item, run, token);
+    }
+  }
+
+  /**
+   * Runs a describe/experiment block as a single lab invocation.
+   * Marks all descendant tests based on the result.
+   */
+  private async runDescribeBlock(
+    item: vscode.TestItem,
+    run: vscode.TestRun,
+    token: vscode.CancellationToken
+  ): Promise<void> {
+    // Collect all descendants to mark with the same result
+    const descendants: vscode.TestItem[] = [];
+    this.collectDescendants(item, descendants);
+
+    // Mark all descendants as started
+    for (const descendant of descendants) {
+      run.started(descendant);
+    }
+
+    // Run the describe block - lab will match all tests under this pattern
+    // The runLabTest will mark both the item and all descendants with the result
+    await runLabTest(item, run, token, descendants);
+  }
+
+  /**
+   * Collects all descendant test items recursively.
+   */
+  private collectDescendants(
+    item: vscode.TestItem,
+    collected: vscode.TestItem[]
+  ): void {
+    for (const [, child] of item.children) {
+      collected.push(child);
+      this.collectDescendants(child, collected);
+    }
+  }
+
+  private collectTestItems(
+    item: vscode.TestItem,
+    collected: vscode.TestItem[]
+  ): void {
     collected.push(item);
     item.children.forEach((child) => {
       this.collectTestItems(child, collected);
