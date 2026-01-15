@@ -6,9 +6,11 @@
  *
  * @module extension
  */
+import { exec } from "child_process";
 import * as fs from "fs";
 import path from "path";
 import * as vscode from "vscode";
+import { getConfig } from "./config";
 import { LabTestController } from "./testController";
 
 type DependencyMap = Record<string, string>;
@@ -79,6 +81,24 @@ export function activate(context: vscode.ExtensionContext): void {
           }
         );
         context.subscriptions.push(refreshCommand);
+
+        const activationCommand = getConfig().activationCommand;
+        if (activationCommand) {
+          const binPath = path.join(folder.uri.fsPath, "node_modules", ".bin");
+          const env = {
+            ...process.env,
+            PATH: `${binPath}:${process.env.PATH}`,
+          };
+          exec(
+            activationCommand,
+            { cwd: folder.uri.fsPath, env },
+            (error) => {
+              if (error) {
+                console.error(`Activation command failed: ${error.message}`);
+              }
+            }
+          );
+        }
       }
     }
   }

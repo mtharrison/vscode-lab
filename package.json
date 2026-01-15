@@ -52,6 +52,11 @@
           "type": "number",
           "default": 30000,
           "description": "Test timeout in milliseconds"
+        },
+        "labTestExplorer.activationCommand": {
+          "type": "string",
+          "default": "",
+          "description": "Shell command to run when the extension activates (runs silently in the background)"
         }
       }
     }

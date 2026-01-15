@@ -20,6 +20,7 @@ export interface LabTestConfig {
   testMatch: string;
   labPath: string;
   timeout: number;
+  activationCommand: string;
 }
 
 /**
@@ -40,6 +41,7 @@ export function getConfig(): LabTestConfig {
     ),
     labPath: config.get<string>("labPath", ""),
     timeout: config.get<number>("timeout", 30000),
+    activationCommand: config.get<string>("activationCommand", ""),
   };
 }
 
