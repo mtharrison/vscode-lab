@@ -235,6 +235,9 @@ export class LabTestController {
       testItem.range = test.range;
       testItem.canResolveChildren = false;
 
+      // Lock in source code order using line number to prevent VS Code from reordering by status
+      testItem.sortText = test.range.start.line.toString().padStart(6, "0");
+
       this.testItemMap.set(testItem, test);
       parent.children.add(testItem);
 
