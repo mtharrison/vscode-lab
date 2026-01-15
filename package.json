@@ -31,10 +31,7 @@
     "test explorer"
   ],
   "activationEvents": [
-    "workspaceContains:**/node_modules/@hapi/lab",
-    "workspaceContains:**/node_modules/lab",
-    "onLanguage:javascript",
-    "onLanguage:typescript"
+    "workspaceContains:**/package.json"
   ],
   "main": "./dist/extension.js",
   "contributes": {

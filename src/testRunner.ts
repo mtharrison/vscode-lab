@@ -7,12 +7,12 @@
  *
  * @module testRunner
  */
-import * as vscode from 'vscode';
-import * as path from 'path';
-import * as fs from 'fs';
-import { spawn } from 'child_process';
-import { getConfig } from './config';
-import { buildTestPattern } from './testParser';
+import { spawn } from "child_process";
+import * as fs from "fs";
+import * as path from "path";
+import * as vscode from "vscode";
+import { getConfig, getLabCommand } from "./config";
+import { buildTestPattern } from "./testParser";
 
 /**
  * Result of a single test execution.
@@ -37,14 +37,16 @@ export interface TestResult {
  * @returns The script command if found, undefined otherwise
  */
 function getPackageScript(cwd: string, scriptName: string): string | undefined {
-  const packageJsonPath = path.join(cwd, 'package.json');
+  const packageJsonPath = path.join(cwd, "package.json");
 
   try {
     if (!fs.existsSync(packageJsonPath)) {
       return undefined;
     }
 
-    const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8')) as {
+    const packageJson = JSON.parse(
+      fs.readFileSync(packageJsonPath, "utf8")
+    ) as {
       scripts?: Record<string, string>;
     };
     return packageJson.scripts?.[scriptName];
@@ -60,15 +62,32 @@ function getPackageScript(cwd: string, scriptName: string): string | undefined {
  * @param cwd - The working directory (project root)
  * @returns true if npm test should be used, false for direct lab invocation
  */
-function shouldUseNpmTest(config: { useNpmTest: 'auto' | 'always' | 'never' }, cwd: string): boolean {
-  if (config.useNpmTest === 'always') {
+function shouldUseNpmTest(
+  config: { useNpmTest: "auto" | "always" | "never" },
+  cwd: string
+): boolean {
+  if (config.useNpmTest === "always") {
     return true;
   }
-  if (config.useNpmTest === 'never') {
+  if (config.useNpmTest === "never") {
     return false;
   }
   // 'auto': use npm test if a test script exists
-  return getPackageScript(cwd, 'test') !== undefined;
+  return getPackageScript(cwd, "test") !== undefined;
+}
+
+export function spawnNpmRun(cwd: string, script: string) {
+  const shell = vscode.env.shell || "/bin/zsh";
+  const env = { ...process.env, FORCE_COLOR: "1" };
+
+  // zsh: make it login + interactive so it loads .zprofile AND .zshrc
+  if (shell.endsWith("zsh")) {
+    return spawn(shell, ["-lic", `npm run ${script}`], { cwd, env });
+  }
+
+  // bash: often -lc is enough (loads profile); if users put node setup in .bashrc,
+  // you may need "-lic" similarly.
+  return spawn(shell, ["-lc", `npm run ${script}`], { cwd, env });
 }
 
 /**
@@ -93,37 +112,34 @@ async function runPretestScript(
     return true;
   }
 
-  const pretestScript = getPackageScript(cwd, 'pretest');
+  const pretestScript = getPackageScript(cwd, "pretest");
   if (!pretestScript) {
     return true;
   }
 
   run.appendOutput(`Running pretest: ${pretestScript}\r\n`);
-  run.appendOutput('─'.repeat(50) + '\r\n');
+  run.appendOutput("─".repeat(50) + "\r\n");
 
   return new Promise<boolean>((resolve) => {
-    const proc = spawn('npm', ['run', 'pretest'], {
-      cwd,
-      env: { ...process.env, FORCE_COLOR: '1' },
-    });
+    const proc = spawnNpmRun(cwd, "pretest");
 
     token.onCancellationRequested(() => {
-      proc.kill('SIGTERM');
+      proc.kill("SIGTERM");
       resolve(false);
     });
 
-    proc.stdout.on('data', (data: Buffer) => {
-      run.appendOutput(data.toString().replace(/\n/g, '\r\n'));
+    proc.stdout.on("data", (data: Buffer) => {
+      run.appendOutput(data.toString().replace(/\n/g, "\r\n"));
     });
 
-    proc.stderr.on('data', (data: Buffer) => {
-      run.appendOutput(data.toString().replace(/\n/g, '\r\n'));
+    proc.stderr.on("data", (data: Buffer) => {
+      run.appendOutput(data.toString().replace(/\n/g, "\r\n"));
     });
 
-    proc.on('close', (code) => {
-      run.appendOutput('─'.repeat(50) + '\r\n');
+    proc.on("close", (code) => {
+      run.appendOutput("─".repeat(50) + "\r\n");
       if (code === 0) {
-        run.appendOutput('Pretest completed successfully\r\n\r\n');
+        run.appendOutput("Pretest completed successfully\r\n\r\n");
         resolve(true);
       } else {
         run.appendOutput(`Pretest failed with exit code ${code}\r\n\r\n`);
@@ -131,7 +147,7 @@ async function runPretestScript(
       }
     });
 
-    proc.on('error', (err) => {
+    proc.on("error", (err) => {
       run.appendOutput(`Pretest error: ${err.message}\r\n`);
       resolve(false);
     });
@@ -161,7 +177,7 @@ export async function runLabTest(
 
   const testFilePath = testItem.uri?.fsPath;
   if (!testFilePath) {
-    run.failed(testItem, new vscode.TestMessage('Test file path not found'));
+    run.failed(testItem, new vscode.TestMessage("Test file path not found"));
     return;
   }
 
@@ -174,7 +190,6 @@ export async function runLabTest(
 
   let command: string;
   let args: string[];
-  let useShell = false;
 
   const useNpmTest = shouldUseNpmTest(config, cwd);
 
@@ -183,19 +198,20 @@ export async function runLabTest(
     // The test script chain (e.g., wolo -> lab) handles timeout/reporter
     // Need shell: true for npm to properly handle the -- separator
     // The pattern is already safe for shell interpretation
-    command = 'npm';
-    args = ['test', '--', '-g', pattern, testFilePath];
-    useShell = true;
+    command = "npm";
+    args = ["test", "--", "-g", pattern, testFilePath];
   } else {
     // Run lab directly via npx
     // No shell needed - spawn passes args directly to the process
-    command = 'npx';
+    command = getLabCommand(config);
     args = [
-      'lab',
-      '-m', config.timeout.toString(),
-      '-v',
-      '-r', 'console',
-      '-g', pattern,
+      "-m",
+      config.timeout.toString(),
+      "-v",
+      "-r",
+      "console",
+      "-g",
+      pattern,
       testFilePath,
     ];
   }
@@ -204,59 +220,62 @@ export async function runLabTest(
   const startTime = Date.now();
 
   return new Promise<void>((resolve) => {
-    let output = '';
-    let errorOutput = '';
+    let output = "";
+    let errorOutput = "";
 
-    const proc = spawn(command, args, {
+    const proc = spawn(process.execPath, [command, ...args], {
       cwd,
-      shell: useShell,
-      env: { ...process.env, FORCE_COLOR: '1' },
+      env: { ...process.env, FORCE_COLOR: "1", ELECTRON_RUN_AS_NODE: "1" },
     });
 
     token.onCancellationRequested(() => {
-      proc.kill('SIGTERM');
+      proc.kill("SIGTERM");
       run.skipped(testItem);
       resolve();
     });
 
-    proc.stdout.on('data', (data: Buffer) => {
+    proc.stdout.on("data", (data: Buffer) => {
       const text = data.toString();
       output += text;
-      run.appendOutput(text.replace(/\n/g, '\r\n'), undefined, testItem);
+      run.appendOutput(text.replace(/\n/g, "\r\n"), undefined, testItem);
     });
 
-    proc.stderr.on('data', (data: Buffer) => {
+    proc.stderr.on("data", (data: Buffer) => {
       const text = data.toString();
       errorOutput += text;
-      run.appendOutput(text.replace(/\n/g, '\r\n'), undefined, testItem);
+      run.appendOutput(text.replace(/\n/g, "\r\n"), undefined, testItem);
     });
 
-    proc.on('close', (code) => {
+    proc.on("close", (code) => {
       const duration = Date.now() - startTime;
 
       if (code === 0) {
         run.passed(testItem, duration);
       } else {
-        const message = parseErrorMessage(output + errorOutput) || 'Test failed';
+        const message =
+          parseErrorMessage(output + errorOutput) || "Test failed";
         run.failed(testItem, new vscode.TestMessage(message), duration);
       }
       resolve();
     });
 
-    proc.on('error', (err) => {
-      run.failed(testItem, new vscode.TestMessage(`Failed to run test: ${err.message}`));
+    proc.on("error", (err) => {
+      run.failed(
+        testItem,
+        new vscode.TestMessage(`Failed to run test: ${err.message}`)
+      );
       resolve();
     });
   });
 }
 
 function parseErrorMessage(output: string): string | undefined {
-  const lines = output.split('\n');
+  const lines = output.split("\n");
   const errorLines: string[] = [];
   let inError = false;
 
   for (const line of lines) {
-    if (line.includes('Error:') || line.includes('AssertionError')) {
+    if (line.includes("Error:") || line.includes("AssertionError")) {
       inError = true;
     }
     if (inError) {
@@ -267,7 +286,7 @@ function parseErrorMessage(output: string): string | undefined {
     }
   }
 
-  return errorLines.length > 0 ? errorLines.join('\n') : undefined;
+  return errorLines.length > 0 ? errorLines.join("\n") : undefined;
 }
 
 /**
@@ -297,7 +316,9 @@ export async function runAllTests(
   const workspaceFolder = firstItem.uri
     ? vscode.workspace.getWorkspaceFolder(firstItem.uri)
     : undefined;
-  const cwd = workspaceFolder?.uri.fsPath || (firstItem.uri ? path.dirname(firstItem.uri.fsPath) : undefined);
+  const cwd =
+    workspaceFolder?.uri.fsPath ||
+    (firstItem.uri ? path.dirname(firstItem.uri.fsPath) : undefined);
 
   // Run pretest script if available (skip if using npm test since npm handles it)
   const useNpmTest = cwd ? shouldUseNpmTest(config, cwd) : false;
@@ -306,7 +327,7 @@ export async function runAllTests(
     if (!pretestSuccess) {
       // If pretest failed, mark all tests as failed
       for (const item of testItems) {
-        run.failed(item, new vscode.TestMessage('Pretest script failed'));
+        run.failed(item, new vscode.TestMessage("Pretest script failed"));
       }
       return;
     }

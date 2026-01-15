@@ -6,8 +6,33 @@
  *
  * @module extension
  */
-import * as vscode from 'vscode';
-import { LabTestController } from './testController';
+import * as fs from "fs";
+import path from "path";
+import * as vscode from "vscode";
+import { LabTestController } from "./testController";
+
+type DependencyMap = Record<string, string>;
+
+interface PackageJson {
+  dependencies?: DependencyMap;
+  devDependencies?: DependencyMap;
+}
+
+const isPackageJson = (value: unknown): value is PackageJson => {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+
+  const obj = value as Record<string, unknown>;
+  const hasDependencies =
+    obj.dependencies === undefined ||
+    (typeof obj.dependencies === "object" && obj.dependencies !== null);
+  const hasDevDependencies =
+    obj.devDependencies === undefined ||
+    (typeof obj.devDependencies === "object" && obj.devDependencies !== null);
+
+  return hasDependencies && hasDevDependencies;
+};
 
 let testController: LabTestController | undefined;
 
@@ -22,20 +47,41 @@ let testController: LabTestController | undefined;
  *                  subscriptions and extension lifecycle
  */
 export function activate(context: vscode.ExtensionContext): void {
-  console.log('Lab Test Explorer is now active');
+  const workspaceFolders = vscode.workspace.workspaceFolders;
+  if (!workspaceFolders) {
+    return;
+  }
 
-  testController = new LabTestController();
-  context.subscriptions.push({
-    dispose: () => testController?.dispose(),
-  });
+  for (const folder of workspaceFolders) {
+    const pkgPath = path.join(folder.uri.fsPath, "package.json");
+    if (fs.existsSync(pkgPath)) {
+      const pkgRaw: unknown = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
+      if (!isPackageJson(pkgRaw)) {
+        continue;
+      }
 
-  const refreshCommand = vscode.commands.registerCommand(
-    'labTestExplorer.refresh',
-    async () => {
-      await testController?.discoverAllTests();
+      const deps = {
+        ...(pkgRaw.dependencies ?? {}),
+        ...(pkgRaw.devDependencies ?? {}),
+      };
+      if (deps["@hapi/lab"] || deps.lab) {
+        console.log("Lab Test Explorer is now active");
+
+        testController = new LabTestController();
+        context.subscriptions.push({
+          dispose: () => testController?.dispose(),
+        });
+
+        const refreshCommand = vscode.commands.registerCommand(
+          "labTestExplorer.refresh",
+          async () => {
+            await testController?.discoverAllTests();
+          }
+        );
+        context.subscriptions.push(refreshCommand);
+      }
     }
-  );
-  context.subscriptions.push(refreshCommand);
+  }
 }
 
 /**

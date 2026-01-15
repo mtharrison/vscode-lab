@@ -6,7 +6,8 @@
  *
  * @module config
  */
-import * as vscode from 'vscode';
+import { existsSync } from "fs";
+import * as vscode from "vscode";
 
 /**
  * Configuration options for the Lab Test Explorer extension.
@@ -22,7 +23,7 @@ export interface LabTestConfig {
   labPath: string;
   timeout: number;
   runPretest: boolean;
-  useNpmTest: 'auto' | 'always' | 'never';
+  useNpmTest: "auto" | "always" | "never";
 }
 
 /**
@@ -34,14 +35,17 @@ export interface LabTestConfig {
  * @returns The current configuration object with all settings populated
  */
 export function getConfig(): LabTestConfig {
-  const config = vscode.workspace.getConfiguration('labTestExplorer');
+  const config = vscode.workspace.getConfiguration("labTestExplorer");
 
   return {
-    testMatch: config.get<string>('testMatch', '**/{test,tests,__tests__}/**/*.{js,ts}'),
-    labPath: config.get<string>('labPath', ''),
-    timeout: config.get<number>('timeout', 30000),
-    runPretest: config.get<boolean>('runPretest', true),
-    useNpmTest: config.get<'auto' | 'always' | 'never'>('useNpmTest', 'auto'),
+    testMatch: config.get<string>(
+      "testMatch",
+      "**/{test,tests,__tests__}/**/*.{js,ts}"
+    ),
+    labPath: config.get<string>("labPath", ""),
+    timeout: config.get<number>("timeout", 30000),
+    runPretest: config.get<boolean>("runPretest", true),
+    useNpmTest: config.get<"auto" | "always" | "never">("useNpmTest", "auto"),
   };
 }
 
@@ -49,6 +53,7 @@ export function getConfig(): LabTestConfig {
  * Determines the lab command to use for test execution.
  *
  * Returns the user-configured lab executable path if provided, otherwise
+ * tries to locate a local installation of lab in the project's node_modules and
  * falls back to using npx to run lab from the project's node_modules.
  *
  * @param config - The current Lab Test Explorer configuration
@@ -58,5 +63,20 @@ export function getLabCommand(config: LabTestConfig): string {
   if (config.labPath) {
     return config.labPath;
   }
-  return 'npx lab';
+
+  // try to use local lab installation
+  const workspaceFolders = vscode.workspace.workspaceFolders;
+  if (workspaceFolders && workspaceFolders.length > 0) {
+    const workspacePath = workspaceFolders[0].uri.fsPath;
+    const resolvedBin = require.resolve("@hapi/lab/bin/lab", {
+      paths: [workspacePath],
+    });
+    console.log("Resolved local lab path:", resolvedBin);
+    if (existsSync(resolvedBin)) {
+      return resolvedBin;
+    }
+  }
+
+  // fallback to npx
+  return "npx lab";
 }
