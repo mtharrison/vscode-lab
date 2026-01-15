@@ -23,6 +23,7 @@ export interface LabTestConfig {
   activationCommand: string;
   labArgs: string;
   commandPrefix: string;
+  suppressPrefixOutput: boolean;
 }
 
 /**
@@ -49,6 +50,7 @@ export function getConfig(): LabTestConfig {
       "--no-lint --no-coverage --no-leaks -v -r console"
     ),
     commandPrefix: config.get<string>("commandPrefix", ""),
+    suppressPrefixOutput: config.get<boolean>("suppressPrefixOutput", true),
   };
 }
 

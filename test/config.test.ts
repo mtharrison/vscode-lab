@@ -21,6 +21,7 @@ describe('config', () => {
       expect(config.testMatch).toBe('**/{test,tests,__tests__}/**/*.{js,ts}');
       expect(config.labPath).toBe('');
       expect(config.timeout).toBe(30000);
+      expect(config.suppressPrefixOutput).toBe(true);
     });
   });
 
@@ -33,6 +34,7 @@ describe('config', () => {
         activationCommand: '',
         labArgs: '',
         commandPrefix: '',
+        suppressPrefixOutput: true,
       };
 
       expect(getLabCommand(config)).toBe('npx lab');
@@ -46,6 +48,7 @@ describe('config', () => {
         activationCommand: '',
         labArgs: '',
         commandPrefix: '',
+        suppressPrefixOutput: true,
       };
 
       expect(getLabCommand(config)).toBe('/usr/local/bin/lab');
@@ -59,6 +62,7 @@ describe('config', () => {
         activationCommand: '',
         labArgs: '',
         commandPrefix: '',
+        suppressPrefixOutput: true,
       };
 
       expect(getLabCommand(config)).toBe('./node_modules/.bin/lab');

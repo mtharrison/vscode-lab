@@ -67,6 +67,11 @@
           "type": "string",
           "default": "",
           "description": "Command prefix to prepend when running tests (e.g., 'NODE_ENV=test' or 'my-wrapper --')"
+        },
+        "labTestExplorer.suppressPrefixOutput": {
+          "type": "boolean",
+          "default": true,
+          "description": "Suppress output from commandPrefix wrapper, showing only lab test results"
         }
       }
     }
