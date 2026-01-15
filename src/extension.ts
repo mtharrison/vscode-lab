@@ -6,7 +6,7 @@
  *
  * @module extension
  */
-import { exec } from "child_process";
+import { spawn } from "child_process";
 import * as fs from "fs";
 import path from "path";
 import * as vscode from "vscode";
@@ -37,6 +37,7 @@ const isPackageJson = (value: unknown): value is PackageJson => {
 };
 
 let testController: LabTestController | undefined;
+let outputChannel: vscode.OutputChannel | undefined;
 
 /**
  * Activates the Lab Test Explorer extension.
@@ -84,20 +85,39 @@ export function activate(context: vscode.ExtensionContext): void {
 
         const activationCommand = getConfig().activationCommand;
         if (activationCommand) {
+          outputChannel = vscode.window.createOutputChannel("Lab Test Explorer");
+          context.subscriptions.push(outputChannel);
+          outputChannel.show(true);
+
           const binPath = path.join(folder.uri.fsPath, "node_modules", ".bin");
           const env = {
             ...process.env,
             PATH: `${binPath}:${process.env.PATH}`,
           };
-          exec(
-            activationCommand,
-            { cwd: folder.uri.fsPath, env },
-            (error) => {
-              if (error) {
-                console.error(`Activation command failed: ${error.message}`);
-              }
-            }
-          );
+
+          outputChannel.appendLine(`> ${activationCommand}\n`);
+
+          const proc = spawn(activationCommand, [], {
+            cwd: folder.uri.fsPath,
+            env,
+            shell: true,
+          });
+
+          proc.stdout.on("data", (data: Buffer) => {
+            outputChannel?.append(data.toString());
+          });
+
+          proc.stderr.on("data", (data: Buffer) => {
+            outputChannel?.append(data.toString());
+          });
+
+          proc.on("error", (err) => {
+            outputChannel?.appendLine(`\nActivation command failed: ${err.message}`);
+          });
+
+          proc.on("close", (code) => {
+            outputChannel?.appendLine(`\nProcess exited with code ${code}`);
+          });
         }
       }
     }
@@ -113,4 +133,6 @@ export function activate(context: vscode.ExtensionContext): void {
 export function deactivate(): void {
   testController?.dispose();
   testController = undefined;
+  outputChannel?.dispose();
+  outputChannel = undefined;
 }
