@@ -14,15 +14,6 @@ import { getConfig, getLabCommand } from "./config";
 import { buildTestPattern } from "./testParser";
 
 /**
- * Pattern to detect start of lab test output.
- * Matches:
- * - Test result symbols: ✔ ✓ ✖ ✗
- * - Numbered test output: "  1) test name"
- * - Test timing: "(123 ms)"
- */
-const LAB_START_PATTERN = /[✔✓✖✗]|\d+\)|^\s+\d+\)|test.*\(\d+\s*ms\)/;
-
-/**
  * Pattern to parse individual test results from lab output.
  * Captures: [1] pass/fail symbol, [2] test name, [3] duration in ms
  * Matches: "✓ 1) test name (123 ms and 2 assertions)"
@@ -104,9 +95,6 @@ export async function runLabTest(
     let output = "";
     let errorOutput = "";
 
-    // State for suppressing prefix output
-    let labOutputStarted = !config.suppressPrefixOutput;
-
     // State for real-time test result tracking
     const descendantMap = new Map<string, vscode.TestItem>();
     const markedDescendants = new Set<vscode.TestItem>();
@@ -118,20 +106,6 @@ export async function runLabTest(
         descendantMap.set(d.label, d);
       }
     }
-
-    const shouldShowOutput = (text: string): boolean => {
-      if (!config.suppressPrefixOutput) {
-        return true;
-      }
-
-      // Check if lab output has started
-      if (!labOutputStarted && LAB_START_PATTERN.test(text)) {
-        labOutputStarted = true;
-      }
-
-      // Once lab output has started, show everything (including failure details after summary)
-      return labOutputStarted;
-    };
 
     let proc;
     const commandPrefix = config.commandPrefix;
@@ -178,9 +152,7 @@ export async function runLabTest(
     proc.stdout.on("data", (data: Buffer) => {
       const text = data.toString();
       output += text;
-      if (shouldShowOutput(text)) {
-        run.appendOutput(text.replace(/\n/g, "\r\n"), undefined, testItem);
-      }
+      run.appendOutput(text.replace(/\n/g, "\r\n"), undefined, testItem);
 
       // Parse for individual test results in real-time
       if (descendants && descendants.length > 0) {
@@ -213,9 +185,7 @@ export async function runLabTest(
     proc.stderr.on("data", (data: Buffer) => {
       const text = data.toString();
       errorOutput += text;
-      if (shouldShowOutput(text)) {
-        run.appendOutput(text.replace(/\n/g, "\r\n"), undefined, testItem);
-      }
+      run.appendOutput(text.replace(/\n/g, "\r\n"), undefined, testItem);
     });
 
     proc.on("close", (code) => {
