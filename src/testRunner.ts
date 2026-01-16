@@ -119,9 +119,11 @@ export async function runLabTest(
         PATH: `${binPath}${path.delimiter}${process.env.PATH}`,
       };
 
-      const fullCommand = command.startsWith("npx ")
-        ? `${commandPrefix} ${command} ${args.join(" ")}`
-        : `${commandPrefix} ${command} ${args.join(" ")}`;
+      // Quote arguments to prevent shell interpretation issues
+      const quotedArgs = args
+        .map((arg) => `'${arg.replace(/'/g, "'\\''")}'`)
+        .join(" ");
+      const fullCommand = `${commandPrefix} ${command} ${quotedArgs}`;
 
       proc = spawn(fullCommand, [], {
         cwd,
