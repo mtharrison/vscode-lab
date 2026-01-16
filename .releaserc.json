@@ -11,7 +11,7 @@
     }],
     ["@semantic-release/exec", {
       "prepareCmd": "npm run package && npx @vscode/vsce package ${nextRelease.version}",
-      "publishCmd": "npx @vscode/vsce publish -p ${process.env.VSCE_PAT}"
+      "publishCmd": "npx @vscode/vsce publish -p ${process.env.VSCE_PAT} && npx ovsx publish *.vsix -p ${process.env.OPEN_VSX_TOKEN}"
     }],
     ["@semantic-release/github", {
       "assets": [
