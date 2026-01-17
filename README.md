@@ -10,6 +10,7 @@
 
 <p align="center">
   <a href="https://marketplace.visualstudio.com/items?itemName=mtharrison.vscode-lab-test-runner"><img src="https://img.shields.io/visual-studio-marketplace/v/mtharrison.vscode-lab-test-runner?label=VS%20Code%20Marketplace" alt="VS Code Marketplace Version"></a>
+  <a href="https://open-vsx.org/extension/mtharrison/vscode-lab-test-runner"><img src="https://img.shields.io/open-vsx/v/mtharrison/vscode-lab-test-runner?label=Open%20VSX" alt="Open VSX Version"></a>
   <a href="https://marketplace.visualstudio.com/items?itemName=mtharrison.vscode-lab-test-runner"><img src="https://img.shields.io/visual-studio-marketplace/d/mtharrison.vscode-lab-test-runner" alt="Downloads"></a>
   <a href="https://marketplace.visualstudio.com/items?itemName=mtharrison.vscode-lab-test-runner"><img src="https://img.shields.io/visual-studio-marketplace/r/mtharrison.vscode-lab-test-runner" alt="Rating"></a>
   <a href="https://github.com/mtharrison/vscode-lab"><img src="https://img.shields.io/github/stars/mtharrison/vscode-lab?style=flat" alt="GitHub Stars"></a>
@@ -61,6 +62,10 @@
 ### From VS Code Marketplace
 
 Search for "hapi/lab Test Runner" in the VS Code Extensions marketplace, or [install directly](https://marketplace.visualstudio.com/items?itemName=mtharrison.vscode-lab-test-runner).
+
+### From Open VSX (Cursor, VSCodium, etc.)
+
+The extension is also available on [Open VSX](https://open-vsx.org/extension/mtharrison/vscode-lab-test-runner) for VS Code derivatives like Cursor, VSCodium, and other editors that use the Open VSX Registry.
 
 ### From Command Line
 
