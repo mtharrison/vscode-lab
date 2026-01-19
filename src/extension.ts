@@ -89,7 +89,6 @@ export function activate(context: vscode.ExtensionContext): void {
             "hapi/lab Test Runner"
           );
           context.subscriptions.push(outputChannel);
-          outputChannel.show(true);
 
           const binPath = path.join(folder.uri.fsPath, "node_modules", ".bin");
           const env = {
@@ -97,7 +96,21 @@ export function activate(context: vscode.ExtensionContext): void {
             PATH: `${binPath}:${process.env.PATH}`,
           };
 
-          outputChannel.appendLine(`> ${activationCommand}\n`);
+          // Buffer output to show only on failure
+          let stdoutBuffer = "";
+          let stderrBuffer = "";
+          let hasError = false;
+
+          const showFailureOutput = () => {
+            outputChannel?.show(true);
+            outputChannel?.appendLine(`> ${activationCommand}\n`);
+            if (stdoutBuffer) {
+              outputChannel?.append(stdoutBuffer);
+            }
+            if (stderrBuffer) {
+              outputChannel?.append(stderrBuffer);
+            }
+          };
 
           const proc = spawn(activationCommand, [], {
             cwd: folder.uri.fsPath,
@@ -106,21 +119,34 @@ export function activate(context: vscode.ExtensionContext): void {
           });
 
           proc.stdout.on("data", (data: Buffer) => {
-            outputChannel?.append(data.toString());
+            stdoutBuffer += data.toString();
           });
 
           proc.stderr.on("data", (data: Buffer) => {
-            outputChannel?.append(data.toString());
+            stderrBuffer += data.toString();
           });
 
           proc.on("error", (err) => {
+            hasError = true;
+            showFailureOutput();
             outputChannel?.appendLine(
               `\nActivation command failed: ${err.message}`
             );
           });
 
           proc.on("close", (code) => {
-            outputChannel?.appendLine(`\nProcess exited with code ${code}`);
+            if (code === 0 && !hasError) {
+              // Show success summary only
+              outputChannel?.appendLine(
+                `Activation command completed successfully`
+              );
+            } else {
+              // Show full output on failure
+              if (!hasError) {
+                showFailureOutput();
+              }
+              outputChannel?.appendLine(`\nProcess exited with code ${code}`);
+            }
           });
         }
       }
