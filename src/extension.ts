@@ -101,6 +101,17 @@ export function activate(context: vscode.ExtensionContext): void {
           let stderrBuffer = "";
           let hasError = false;
 
+          const showFailureOutput = () => {
+            outputChannel?.show(true);
+            outputChannel?.appendLine(`> ${activationCommand}\n`);
+            if (stdoutBuffer) {
+              outputChannel?.append(stdoutBuffer);
+            }
+            if (stderrBuffer) {
+              outputChannel?.append(stderrBuffer);
+            }
+          };
+
           const proc = spawn(activationCommand, [], {
             cwd: folder.uri.fsPath,
             env,
@@ -117,38 +128,24 @@ export function activate(context: vscode.ExtensionContext): void {
 
           proc.on("error", (err) => {
             hasError = true;
-            outputChannel?.show(true);
-            outputChannel?.appendLine(`> ${activationCommand}\n`);
-            if (stdoutBuffer) {
-              outputChannel?.append(stdoutBuffer);
-            }
-            if (stderrBuffer) {
-              outputChannel?.append(stderrBuffer);
-            }
+            showFailureOutput();
             outputChannel?.appendLine(
               `\nActivation command failed: ${err.message}`
             );
           });
 
           proc.on("close", (code) => {
-            if (code !== 0 || hasError) {
-              // Show full output on failure
-              if (!hasError) {
-                outputChannel?.show(true);
-                outputChannel?.appendLine(`> ${activationCommand}\n`);
-                if (stdoutBuffer) {
-                  outputChannel?.append(stdoutBuffer);
-                }
-                if (stderrBuffer) {
-                  outputChannel?.append(stderrBuffer);
-                }
-              }
-              outputChannel?.appendLine(`\nProcess exited with code ${code}`);
-            } else {
+            if (code === 0 && !hasError) {
               // Show success summary only
               outputChannel?.appendLine(
                 `Activation command completed successfully`
               );
+            } else {
+              // Show full output on failure
+              if (!hasError) {
+                showFailureOutput();
+              }
+              outputChannel?.appendLine(`\nProcess exited with code ${code}`);
             }
           });
         }
