@@ -60,7 +60,7 @@
         },
         "labTestExplorer.labArgs": {
           "type": "string",
-          "default": "--no-lint --no-coverage --no-leaks -v -r console",
+          "default": "--no-lint --no-coverage --no-L -v -r console",
           "description": "Additional CLI arguments to pass to lab (timeout, grep pattern, and file path are added automatically)"
         },
         "labTestExplorer.commandPrefix": {

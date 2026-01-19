@@ -47,7 +47,7 @@ export function getConfig(): LabTestConfig {
     activationCommand: config.get<string>("activationCommand", ""),
     labArgs: config.get<string>(
       "labArgs",
-      "--no-lint --no-coverage --no-leaks -v -r console"
+      "--no-lint --no-coverage --no-L -v -r console"
     ),
     commandPrefix: config.get<string>("commandPrefix", ""),
     suppressPrefixOutput: config.get<boolean>("suppressPrefixOutput", true),
