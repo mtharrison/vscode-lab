@@ -91,7 +91,7 @@ Configure the extension through VS Code settings (`Cmd+,` or `Ctrl+,`):
 | `labTestExplorer.testMatch` | `**/{test,tests,__tests__}/**/*.{js,ts}` | Glob pattern to match test files |
 | `labTestExplorer.labPath` | `""` | Path to lab executable (leave empty to use npx) |
 | `labTestExplorer.timeout` | `30000` | Test timeout in milliseconds |
-| `labTestExplorer.labArgs` | `--no-lint --no-coverage --no-leaks -v -r console` | CLI arguments to pass to lab |
+| `labTestExplorer.labArgs` | `--no-lint --no-coverage --no-L -v -r console` | CLI arguments to pass to lab |
 | `labTestExplorer.commandPrefix` | `""` | Command prefix for running tests (e.g., `NODE_ENV=test`) |
 | `labTestExplorer.activationCommand` | `""` | Shell command to run when extension activates |
 | `labTestExplorer.suppressPrefixOutput` | `true` | Suppress output from commandPrefix wrapper |
