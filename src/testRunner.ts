@@ -331,9 +331,15 @@ export function parseErrorMessage(output: string): FailureInfo | undefined {
   if (match) {
     const [, actualStr, expectedStr] = match;
     
-    // Clean up the values by removing quotes and trimming
+    // Clean up the values by removing surrounding quotes (if both start and end match) and trimming
     const cleanValue = (val: string): string => {
-      return val.trim().replace(/^['"]|['"]$/g, "");
+      const trimmed = val.trim();
+      // Remove quotes only if they match at both ends
+      if ((trimmed.startsWith("'") && trimmed.endsWith("'")) ||
+          (trimmed.startsWith('"') && trimmed.endsWith('"'))) {
+        return trimmed.slice(1, -1);
+      }
+      return trimmed;
     };
 
     return {
