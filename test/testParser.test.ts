@@ -321,6 +321,195 @@ describe('testParser', () => {
       expect(tests[2].name).toBe('another standalone');
       expect(tests[2].children).toHaveLength(0);
     });
+
+    // Test .only and .skip modifiers
+    describe('test modifiers (.only and .skip)', () => {
+      it('should parse it.only() tests', () => {
+        const code = `
+          it.only('should run only this test', () => {
+            expect(true).toBe(true);
+          });
+        `;
+
+        const tests = parseTestFile(code);
+
+        expect(tests).toHaveLength(1);
+        expect(tests[0].name).toBe('should run only this test');
+        expect(tests[0].type).toBe('it');
+        expect(tests[0].modifier).toBe('only');
+      });
+
+      it('should parse it.skip() tests', () => {
+        const code = `
+          it.skip('should skip this test', () => {
+            expect(true).toBe(true);
+          });
+        `;
+
+        const tests = parseTestFile(code);
+
+        expect(tests).toHaveLength(1);
+        expect(tests[0].name).toBe('should skip this test');
+        expect(tests[0].type).toBe('it');
+        expect(tests[0].modifier).toBe('skip');
+      });
+
+      it('should parse test.only() tests', () => {
+        const code = `
+          test.only('should run only this test', () => {
+            expect(true).toBe(true);
+          });
+        `;
+
+        const tests = parseTestFile(code);
+
+        expect(tests).toHaveLength(1);
+        expect(tests[0].name).toBe('should run only this test');
+        expect(tests[0].type).toBe('test');
+        expect(tests[0].modifier).toBe('only');
+      });
+
+      it('should parse test.skip() tests', () => {
+        const code = `
+          test.skip('should skip this test', () => {
+            expect(true).toBe(true);
+          });
+        `;
+
+        const tests = parseTestFile(code);
+
+        expect(tests).toHaveLength(1);
+        expect(tests[0].name).toBe('should skip this test');
+        expect(tests[0].type).toBe('test');
+        expect(tests[0].modifier).toBe('skip');
+      });
+
+      it('should parse describe.only() tests', () => {
+        const code = `
+          describe.only('MyModule', () => {
+            it('should work', () => {});
+          });
+        `;
+
+        const tests = parseTestFile(code);
+
+        expect(tests).toHaveLength(1);
+        expect(tests[0].name).toBe('MyModule');
+        expect(tests[0].type).toBe('describe');
+        expect(tests[0].modifier).toBe('only');
+        expect(tests[0].children).toHaveLength(1);
+        expect(tests[0].children[0].modifier).toBeUndefined();
+      });
+
+      it('should parse describe.skip() tests', () => {
+        const code = `
+          describe.skip('MyModule', () => {
+            it('should work', () => {});
+          });
+        `;
+
+        const tests = parseTestFile(code);
+
+        expect(tests).toHaveLength(1);
+        expect(tests[0].name).toBe('MyModule');
+        expect(tests[0].type).toBe('describe');
+        expect(tests[0].modifier).toBe('skip');
+        expect(tests[0].children).toHaveLength(1);
+      });
+
+      it('should parse experiment.only() tests', () => {
+        const code = `
+          experiment.only('My Experiment', () => {
+            test('should pass', () => {});
+          });
+        `;
+
+        const tests = parseTestFile(code);
+
+        expect(tests).toHaveLength(1);
+        expect(tests[0].name).toBe('My Experiment');
+        expect(tests[0].type).toBe('experiment');
+        expect(tests[0].modifier).toBe('only');
+        expect(tests[0].children).toHaveLength(1);
+      });
+
+      it('should parse experiment.skip() tests', () => {
+        const code = `
+          experiment.skip('My Experiment', () => {
+            test('should pass', () => {});
+          });
+        `;
+
+        const tests = parseTestFile(code);
+
+        expect(tests).toHaveLength(1);
+        expect(tests[0].name).toBe('My Experiment');
+        expect(tests[0].type).toBe('experiment');
+        expect(tests[0].modifier).toBe('skip');
+      });
+
+      it('should parse mixed tests with and without modifiers', () => {
+        const code = `
+          describe('MyModule', () => {
+            it('normal test', () => {});
+            it.only('only this one', () => {});
+            it.skip('skip this one', () => {});
+            it('another normal test', () => {});
+          });
+        `;
+
+        const tests = parseTestFile(code);
+
+        expect(tests).toHaveLength(1);
+        expect(tests[0].name).toBe('MyModule');
+        expect(tests[0].modifier).toBeUndefined();
+        expect(tests[0].children).toHaveLength(4);
+
+        expect(tests[0].children[0].name).toBe('normal test');
+        expect(tests[0].children[0].modifier).toBeUndefined();
+
+        expect(tests[0].children[1].name).toBe('only this one');
+        expect(tests[0].children[1].modifier).toBe('only');
+
+        expect(tests[0].children[2].name).toBe('skip this one');
+        expect(tests[0].children[2].modifier).toBe('skip');
+
+        expect(tests[0].children[3].name).toBe('another normal test');
+        expect(tests[0].children[3].modifier).toBeUndefined();
+      });
+
+      it('should not parse invalid modifiers', () => {
+        const code = `
+          it.focus('should not parse this', () => {});
+          it.todo('should not parse this either', () => {});
+        `;
+
+        const tests = parseTestFile(code);
+
+        // Should not parse tests with unsupported modifiers
+        expect(tests).toHaveLength(0);
+      });
+
+      it('should handle async tests with modifiers', () => {
+        const code = `
+          it.only('async only test', async () => {
+            await Promise.resolve();
+          });
+          
+          it.skip('async skip test', async () => {
+            await Promise.resolve();
+          });
+        `;
+
+        const tests = parseTestFile(code);
+
+        expect(tests).toHaveLength(2);
+        expect(tests[0].name).toBe('async only test');
+        expect(tests[0].modifier).toBe('only');
+        expect(tests[1].name).toBe('async skip test');
+        expect(tests[1].modifier).toBe('skip');
+      });
+    });
   });
 
   describe('escapeRegExp', () => {

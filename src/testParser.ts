@@ -17,12 +17,14 @@ import * as vscode from 'vscode';
  * @property type - The type of test function that was called
  * @property range - The source location range for displaying gutter icons
  * @property children - Nested tests (for describe/experiment blocks)
+ * @property modifier - Optional modifier applied to the test ('only' | 'skip')
  */
 export interface ParsedTest {
   name: string;
   type: 'describe' | 'it' | 'experiment' | 'test';
   range: vscode.Range;
   children: ParsedTest[];
+  modifier?: 'only' | 'skip';
 }
 
 /** Set of recognized test function names from @hapi/lab */
@@ -80,6 +82,7 @@ function extractTestsFromStatements(statements: TSESTree.Statement[]): ParsedTes
 /**
  * Extracts test info from an expression node if it's a test function call.
  * For describe/experiment blocks, recursively extracts children from the callback.
+ * Supports both simple calls (it(), test()) and modifier calls (it.only(), it.skip()).
  */
 function extractTestFromExpression(node: TSESTree.Expression): ParsedTest | null {
   if (node.type !== AST_NODE_TYPES.CallExpression) {
@@ -87,14 +90,44 @@ function extractTestFromExpression(node: TSESTree.Expression): ParsedTest | null
   }
 
   const callNode = node;
+  let functionName: string;
+  let modifier: 'only' | 'skip' | undefined;
 
-  // Check if this is a test function call
-  if (
-    callNode.callee.type !== AST_NODE_TYPES.Identifier ||
-    !TEST_FUNCTIONS.has(callNode.callee.name) ||
-    callNode.arguments.length < 2 ||
-    !callNode.loc
-  ) {
+  // Check if this is a simple test function call (e.g., it(), test())
+  if (callNode.callee.type === AST_NODE_TYPES.Identifier) {
+    if (!TEST_FUNCTIONS.has(callNode.callee.name)) {
+      return null;
+    }
+    functionName = callNode.callee.name;
+  }
+  // Check if this is a member expression call (e.g., it.only(), it.skip())
+  else if (callNode.callee.type === AST_NODE_TYPES.MemberExpression) {
+    const memberExpr = callNode.callee;
+    
+    // Check if the object is a test function identifier
+    if (
+      memberExpr.object.type !== AST_NODE_TYPES.Identifier ||
+      !TEST_FUNCTIONS.has(memberExpr.object.name)
+    ) {
+      return null;
+    }
+    
+    // Check if the property is 'only' or 'skip'
+    if (
+      memberExpr.property.type !== AST_NODE_TYPES.Identifier ||
+      (memberExpr.property.name !== 'only' && memberExpr.property.name !== 'skip')
+    ) {
+      return null;
+    }
+    
+    functionName = memberExpr.object.name;
+    modifier = memberExpr.property.name as 'only' | 'skip';
+  } else {
+    return null;
+  }
+
+  // Check if this call has the required arguments
+  if (callNode.arguments.length < 2 || !callNode.loc) {
     return null;
   }
 
@@ -121,11 +154,11 @@ function extractTestFromExpression(node: TSESTree.Expression): ParsedTest | null
     callNode.loc.end.column
   );
 
-  const testType = callNode.callee.name as ParsedTest['type'];
+  const testType = functionName as ParsedTest['type'];
   let children: ParsedTest[] = [];
 
   // For describe/experiment blocks, extract children from the callback
-  if (CONTAINER_FUNCTIONS.has(callNode.callee.name)) {
+  if (CONTAINER_FUNCTIONS.has(functionName)) {
     const callback = callNode.arguments[1];
     if (
       (callback.type === AST_NODE_TYPES.ArrowFunctionExpression ||
@@ -136,12 +169,18 @@ function extractTestFromExpression(node: TSESTree.Expression): ParsedTest | null
     }
   }
 
-  return {
+  const result: ParsedTest = {
     name: testName,
     type: testType,
     range,
     children,
   };
+
+  if (modifier) {
+    result.modifier = modifier;
+  }
+
+  return result;
 }
 
 /**

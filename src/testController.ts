@@ -238,6 +238,15 @@ export class LabTestController {
       // Lock in source code order using line number to prevent VS Code from reordering by status
       testItem.sortText = test.range.start.line.toString().padStart(6, "0");
 
+      // Add visual indicator for .only and .skip modifiers
+      if (test.modifier === 'only') {
+        testItem.tags = [new vscode.TestTag('only')];
+        testItem.description = '(only)';
+      } else if (test.modifier === 'skip') {
+        testItem.tags = [new vscode.TestTag('skip')];
+        testItem.description = '(skip)';
+      }
+
       this.testItemMap.set(testItem, test);
       parent.children.add(testItem);
 
