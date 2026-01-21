@@ -389,7 +389,9 @@ export class LabTestController {
   ): void {
     for (const [, child] of item.children) {
       run.skipped(child);
-      this.skipAllDescendants(child, run);
+      if (child.children.size > 0) {
+        this.skipAllDescendants(child, run);
+      }
     }
   }
 
