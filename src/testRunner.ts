@@ -43,6 +43,19 @@ export interface TestResult {
 }
 
 /**
+ * Parsed failure information from lab output.
+ *
+ * @property message - The full error message
+ * @property actualOutput - The actual output value (for diff view)
+ * @property expectedOutput - The expected output value (for diff view)
+ */
+interface FailureInfo {
+  message: string;
+  actualOutput?: string;
+  expectedOutput?: string;
+}
+
+/**
  * Executes a single @hapi/lab test case or describe block.
  *
  * Spawns the lab binary (or a custom lab executable if configured) with the appropriate
@@ -204,19 +217,40 @@ export async function runLabTest(
           }
         }
       } else {
-        const message =
-          parseErrorMessage(output + errorOutput) || "Test failed";
-        run.failed(testItem, new vscode.TestMessage(message), duration);
+        const failureInfo =
+          parseErrorMessage(output + errorOutput) || { message: "Test failed" };
+        
+        const testMessage = new vscode.TestMessage(failureInfo.message);
+        
+        // If we have actual/expected values, set them to enable VS Code's diff view
+        if (failureInfo.actualOutput && failureInfo.expectedOutput) {
+          testMessage.actualOutput = failureInfo.actualOutput;
+          testMessage.expectedOutput = failureInfo.expectedOutput;
+        }
+        
+        run.failed(testItem, testMessage, duration);
+        
         // Mark failed descendants detected in real-time with actual error message
         for (const [descendant, descendantDuration] of failedDescendants) {
           markedDescendants.add(descendant);
-          run.failed(descendant, new vscode.TestMessage(message), descendantDuration);
+          const descendantMessage = new vscode.TestMessage(failureInfo.message);
+          if (failureInfo.actualOutput && failureInfo.expectedOutput) {
+            descendantMessage.actualOutput = failureInfo.actualOutput;
+            descendantMessage.expectedOutput = failureInfo.expectedOutput;
+          }
+          run.failed(descendant, descendantMessage, descendantDuration);
         }
+        
         // Mark remaining descendants as failed
         if (descendants) {
           for (const descendant of descendants) {
             if (!markedDescendants.has(descendant)) {
-              run.failed(descendant, new vscode.TestMessage(message), duration);
+              const descendantMessage = new vscode.TestMessage(failureInfo.message);
+              if (failureInfo.actualOutput && failureInfo.expectedOutput) {
+                descendantMessage.actualOutput = failureInfo.actualOutput;
+                descendantMessage.expectedOutput = failureInfo.expectedOutput;
+              }
+              run.failed(descendant, descendantMessage, duration);
             }
           }
         }
@@ -240,7 +274,24 @@ export async function runLabTest(
  */
 const FAILURE_START_PATTERN = /^\s*\d+\)\s+.+:/;
 
-function parseErrorMessage(output: string): string | undefined {
+/**
+ * Pattern to extract actual and expected values from lab's error messages.
+ * Matches:
+ *   - "Expected <actual> to equal specified value: <expected>"
+ *   - "Expected <actual> to include <expected>"
+ *   - "Expected <actual> to contain <expected>"
+ * Captures: [1] actual value, [2] expected value
+ */
+const EXPECTED_PATTERN = /Expected (.+?) to (?:equal specified value:|include|contain)\s*(.+?)(?:\s*at\s|$)/s;
+
+/**
+ * Parses lab's failure output to extract error message and actual/expected values.
+ * Exported for testing purposes.
+ * 
+ * @param output - Raw test output from lab
+ * @returns Parsed failure information with message and optional actual/expected values
+ */
+export function parseErrorMessage(output: string): FailureInfo | undefined {
   // Strip ANSI escape codes for cleaner parsing
   const cleanOutput = output.replace(ANSI_ESCAPE_PATTERN, "");
   const lines = cleanOutput.split("\n");
@@ -272,5 +323,34 @@ function parseErrorMessage(output: string): string | undefined {
     errorLines.pop();
   }
 
-  return errorLines.length > 0 ? errorLines.join("\n") : undefined;
+  if (errorLines.length === 0) {
+    return undefined;
+  }
+
+  const message = errorLines.join("\n");
+
+  // Try to extract actual and expected values for assertion failures
+  const match = EXPECTED_PATTERN.exec(message);
+  if (match) {
+    const [, actualStr, expectedStr] = match;
+    
+    // Clean up the values by removing surrounding quotes (if both start and end match) and trimming
+    const cleanValue = (val: string): string => {
+      const trimmed = val.trim();
+      // Remove quotes only if they match at both ends
+      if ((trimmed.startsWith("'") && trimmed.endsWith("'")) ||
+          (trimmed.startsWith('"') && trimmed.endsWith('"'))) {
+        return trimmed.slice(1, -1);
+      }
+      return trimmed;
+    };
+
+    return {
+      message,
+      actualOutput: cleanValue(actualStr),
+      expectedOutput: cleanValue(expectedStr),
+    };
+  }
+
+  return { message };
 }
