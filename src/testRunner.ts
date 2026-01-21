@@ -28,6 +28,29 @@ const TEST_RESULT_PATTERN = /([✓✔✖✗])\s*\d+\)\s*(.+?)\s*\((\d+)\s*ms/;
 const ANSI_ESCAPE_PATTERN = /\u001b\[[0-9;]*m/g;
 
 /**
+ * Pattern to filter out lab's own structural output lines.
+ * These lines should not be captured as console output from tests.
+ */
+const LAB_OUTPUT_FILTER_PATTERN = /^(Test duration:|Leaks:|Failed tests:| {2}\d+\))/;
+
+/**
+ * Formats an error message with optional console output prepended.
+ * 
+ * @param baseMessage - The original error message from the test failure
+ * @param consoleOutput - Optional console output to prepend
+ * @returns Formatted message with console output (if any) followed by error message
+ */
+function formatMessageWithConsoleOutput(
+  baseMessage: string,
+  consoleOutput?: string
+): string {
+  if (consoleOutput) {
+    return `Console output:\n${consoleOutput}\n\n${baseMessage}`;
+  }
+  return baseMessage;
+}
+
+/**
  * Result of a single test execution.
  *
  * @property passed - Whether the test passed successfully
@@ -175,6 +198,8 @@ export async function runLabTest(
             const duration = parseInt(durationStr, 10);
             
             // Save any accumulated console output for this test
+            // Lab runs tests sequentially, so console output before a test result
+            // belongs to that test. The extension also runs lab once per test/describe.
             if (consoleBuffer.length > 0) {
               consoleOutputPerTest.set(descendant, consoleBuffer.join("\n"));
               consoleBuffer = []; // Clear buffer for next test
@@ -191,7 +216,7 @@ export async function runLabTest(
         } else if (!TEST_RESULT_PATTERN.test(cleanLine) && cleanLine.trim()) {
           // This is not a test result line and not empty - might be console output
           // Only buffer if it's not part of lab's output structure
-          if (!cleanLine.match(/^(Test duration:|Leaks:|Failed tests:| {2}\d+\))/)) {
+          if (!LAB_OUTPUT_FILTER_PATTERN.test(cleanLine)) {
             consoleBuffer.push(line);
           }
         }
@@ -222,12 +247,10 @@ export async function runLabTest(
           parseErrorMessage(output + errorOutput) || "Test failed";
         
         // For single test (no descendants), include console output in main error message
-        let mainMessage = baseMessage;
-        if (!descendants || descendants.length === 0) {
-          if (consoleBuffer.length > 0) {
-            mainMessage = `Console output:\n${consoleBuffer.join("\n")}\n\n${baseMessage}`;
-          }
-        }
+        const mainConsoleOutput = (!descendants || descendants.length === 0) && consoleBuffer.length > 0
+          ? consoleBuffer.join("\n")
+          : undefined;
+        const mainMessage = formatMessageWithConsoleOutput(baseMessage, mainConsoleOutput);
         
         run.failed(testItem, new vscode.TestMessage(mainMessage), duration);
         
@@ -237,10 +260,7 @@ export async function runLabTest(
           
           // Include console output in the error message for this specific test
           const consoleOutput = consoleOutputPerTest.get(descendant);
-          let errorMessage = baseMessage;
-          if (consoleOutput) {
-            errorMessage = `Console output:\n${consoleOutput}\n\n${baseMessage}`;
-          }
+          const errorMessage = formatMessageWithConsoleOutput(baseMessage, consoleOutput);
           
           run.failed(descendant, new vscode.TestMessage(errorMessage), descendantDuration);
         }
