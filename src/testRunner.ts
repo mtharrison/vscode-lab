@@ -99,7 +99,9 @@ export async function runLabTest(
     const descendantMap = new Map<string, vscode.TestItem>();
     const markedDescendants = new Set<vscode.TestItem>();
     const failedDescendants = new Map<vscode.TestItem, number>(); // TestItem -> duration
+    const consoleOutputPerTest = new Map<vscode.TestItem, string>(); // TestItem -> console output
     let lineBuffer = "";
+    let consoleBuffer: string[] = []; // Buffer for console output before a test result
 
     if (descendants) {
       for (const d of descendants) {
@@ -157,28 +159,40 @@ export async function runLabTest(
       run.appendOutput(text.replace(/\n/g, "\r\n"), undefined, testItem);
 
       // Parse for individual test results in real-time
-      if (descendants && descendants.length > 0) {
-        lineBuffer += text;
-        const lines = lineBuffer.split("\n");
-        // Keep last incomplete line in buffer
-        lineBuffer = lines.pop() || "";
+      lineBuffer += text;
+      const lines = lineBuffer.split("\n");
+      // Keep last incomplete line in buffer
+      lineBuffer = lines.pop() || "";
 
-        for (const line of lines) {
-          const cleanLine = line.replace(ANSI_ESCAPE_PATTERN, "");
-          const match = TEST_RESULT_PATTERN.exec(cleanLine);
-          if (match) {
-            const [, symbol, testName, durationStr] = match;
-            const descendant = descendantMap.get(testName.trim());
-            if (descendant && !markedDescendants.has(descendant)) {
-              const duration = parseInt(durationStr, 10);
-              if (symbol === "✓" || symbol === "✔") {
-                markedDescendants.add(descendant);
-                run.passed(descendant, duration);
-              } else {
-                // Store failed tests to mark in close handler with actual error message
-                failedDescendants.set(descendant, duration);
-              }
+      for (const line of lines) {
+        const cleanLine = line.replace(ANSI_ESCAPE_PATTERN, "");
+        const match = TEST_RESULT_PATTERN.exec(cleanLine);
+        
+        if (match && descendants && descendants.length > 0) {
+          const [, symbol, testName, durationStr] = match;
+          const descendant = descendantMap.get(testName.trim());
+          if (descendant && !markedDescendants.has(descendant)) {
+            const duration = parseInt(durationStr, 10);
+            
+            // Save any accumulated console output for this test
+            if (consoleBuffer.length > 0) {
+              consoleOutputPerTest.set(descendant, consoleBuffer.join("\n"));
+              consoleBuffer = []; // Clear buffer for next test
             }
+            
+            if (symbol === "✓" || symbol === "✔") {
+              markedDescendants.add(descendant);
+              run.passed(descendant, duration);
+            } else {
+              // Store failed tests to mark in close handler with actual error message
+              failedDescendants.set(descendant, duration);
+            }
+          }
+        } else if (!TEST_RESULT_PATTERN.test(cleanLine) && cleanLine.trim()) {
+          // This is not a test result line and not empty - might be console output
+          // Only buffer if it's not part of lab's output structure
+          if (!cleanLine.match(/^(Test duration:|Leaks:|Failed tests:| {2}\d+\))/)) {
+            consoleBuffer.push(line);
           }
         }
       }
@@ -204,19 +218,37 @@ export async function runLabTest(
           }
         }
       } else {
-        const message =
+        const baseMessage =
           parseErrorMessage(output + errorOutput) || "Test failed";
-        run.failed(testItem, new vscode.TestMessage(message), duration);
+        
+        // For single test (no descendants), include console output in main error message
+        let mainMessage = baseMessage;
+        if (!descendants || descendants.length === 0) {
+          if (consoleBuffer.length > 0) {
+            mainMessage = `Console output:\n${consoleBuffer.join("\n")}\n\n${baseMessage}`;
+          }
+        }
+        
+        run.failed(testItem, new vscode.TestMessage(mainMessage), duration);
+        
         // Mark failed descendants detected in real-time with actual error message
         for (const [descendant, descendantDuration] of failedDescendants) {
           markedDescendants.add(descendant);
-          run.failed(descendant, new vscode.TestMessage(message), descendantDuration);
+          
+          // Include console output in the error message for this specific test
+          const consoleOutput = consoleOutputPerTest.get(descendant);
+          let errorMessage = baseMessage;
+          if (consoleOutput) {
+            errorMessage = `Console output:\n${consoleOutput}\n\n${baseMessage}`;
+          }
+          
+          run.failed(descendant, new vscode.TestMessage(errorMessage), descendantDuration);
         }
         // Mark remaining descendants as failed
         if (descendants) {
           for (const descendant of descendants) {
             if (!markedDescendants.has(descendant)) {
-              run.failed(descendant, new vscode.TestMessage(message), duration);
+              run.failed(descendant, new vscode.TestMessage(baseMessage), duration);
             }
           }
         }
