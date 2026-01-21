@@ -314,6 +314,17 @@ export class LabTestController {
       return;
     }
 
+    // Check if this test has a .skip modifier - if so, skip it without running
+    const parsedTest = this.testItemMap.get(item);
+    if (parsedTest?.modifier === 'skip') {
+      run.skipped(item);
+      // If it's a container (describe/experiment), skip all children too
+      if (item.children.size > 0) {
+        this.skipAllDescendants(item, run);
+      }
+      return;
+    }
+
     // Check if this is a file item (no parent test, just contains tests)
     const isFileItem = !item.id.includes("#");
 
@@ -366,6 +377,19 @@ export class LabTestController {
     for (const [, child] of item.children) {
       collected.push(child);
       this.collectDescendants(child, collected);
+    }
+  }
+
+  /**
+   * Marks all descendant test items as skipped.
+   */
+  private skipAllDescendants(
+    item: vscode.TestItem,
+    run: vscode.TestRun
+  ): void {
+    for (const [, child] of item.children) {
+      run.skipped(child);
+      this.skipAllDescendants(child, run);
     }
   }
 
