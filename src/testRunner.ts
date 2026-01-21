@@ -276,10 +276,13 @@ const FAILURE_START_PATTERN = /^\s*\d+\)\s+.+:/;
 
 /**
  * Pattern to extract actual and expected values from lab's error messages.
- * Matches: "Expected <actual> to equal specified value: <expected>"
- * Captures: [1] actual value (quoted or unquoted), [2] expected value (quoted or unquoted)
+ * Matches:
+ *   - "Expected <actual> to equal specified value: <expected>"
+ *   - "Expected <actual> to include <expected>"
+ *   - "Expected <actual> to contain <expected>"
+ * Captures: [1] actual value, [2] expected value
  */
-const EXPECTED_PATTERN = /Expected (.+?) to equal specified value:\s*(.+?)(?:\s*at\s|$)/s;
+const EXPECTED_PATTERN = /Expected (.+?) to (?:equal specified value:|include|contain)\s*(.+?)(?:\s*at\s|$)/s;
 
 /**
  * Parses lab's failure output to extract error message and actual/expected values.

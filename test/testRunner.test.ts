@@ -26,6 +26,44 @@ Failed tests:
       expect(result?.expectedOutput).toBe('ba');
     });
 
+    it('should parse include assertion failure', () => {
+      const output = `
+Failed tests:
+
+  1) Various assertion types should fail with include assertion:
+
+      Expected { a: 1 } to include { b: 1 }
+
+      at /tmp/lab-test-include/test.js:9:29
+`;
+
+      const result = parseErrorMessage(output);
+
+      expect(result).toBeDefined();
+      expect(result?.message).toContain('Expected { a: 1 } to include { b: 1 }');
+      expect(result?.actualOutput).toBe('{ a: 1 }');
+      expect(result?.expectedOutput).toBe('{ b: 1 }');
+    });
+
+    it('should parse contain assertion failure', () => {
+      const output = `
+Failed tests:
+
+  1) Various assertion types should fail with contain assertion:
+
+      Expected 'hello' to include 'world'
+
+      at /tmp/lab-test-include/test.js:13:28
+`;
+
+      const result = parseErrorMessage(output);
+
+      expect(result).toBeDefined();
+      expect(result?.message).toContain("Expected 'hello' to include 'world'");
+      expect(result?.actualOutput).toBe('hello');
+      expect(result?.expectedOutput).toBe('world');
+    });
+
     it('should parse number comparison failure', () => {
       const output = `
 Failed tests:
